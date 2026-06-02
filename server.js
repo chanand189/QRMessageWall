@@ -76,6 +76,10 @@ function moderateMessage(text) {
 }
 
 // ── Middleware ───────────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
 app.use(express.json());
 
 // Health check — must be before static middleware
