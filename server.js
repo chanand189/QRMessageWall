@@ -79,6 +79,9 @@ function moderateMessage(text) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Railway health check
+app.get('/healthz', (req, res) => res.sendStatus(200));
+
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.get('/submit', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'submit.html'));
@@ -128,6 +131,7 @@ io.on('connection', (socket) => {
 
 // ── Start ────────────────────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Wall display : ${BASE_URL}`);
-  console.log(`Submit page  : ${SUBMIT_URL}`);
+  console.log(`Listening on port : ${PORT}`);
+  console.log(`Wall display      : ${BASE_URL}`);
+  console.log(`Submit page       : ${SUBMIT_URL}`);
 });
