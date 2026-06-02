@@ -13,11 +13,10 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// On Railway, RAILWAY_PUBLIC_DOMAIN is set automatically.
-// Locally, fall back to the LAN IP so phones on the same WiFi can reach it.
-const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
-  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-  : `http://${getLocalIP()}:${PORT}`;
+// Priority: PUBLIC_URL env var (custom domain) → Railway auto domain → local LAN IP
+const BASE_URL = process.env.PUBLIC_URL
+  || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
+  || `http://${getLocalIP()}:${PORT}`;
 
 const SUBMIT_URL = `${BASE_URL}/submit`;
 
