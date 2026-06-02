@@ -11,9 +11,15 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = 3000;
-const LOCAL_IP = getLocalIP();
-const SUBMIT_URL = `http://${LOCAL_IP}:${PORT}/submit`;
+const PORT = process.env.PORT || 3000;
+
+// On Railway, RAILWAY_PUBLIC_DOMAIN is set automatically.
+// Locally, fall back to the LAN IP so phones on the same WiFi can reach it.
+const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+  : `http://${getLocalIP()}:${PORT}`;
+
+const SUBMIT_URL = `${BASE_URL}/submit`;
 
 let messages = [];
 const MAX_MESSAGES = 50;
@@ -123,6 +129,6 @@ io.on('connection', (socket) => {
 
 // ── Start ────────────────────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Wall display : http://${LOCAL_IP}:${PORT}`);
+  console.log(`Wall display : ${BASE_URL}`);
   console.log(`Submit page  : ${SUBMIT_URL}`);
 });
