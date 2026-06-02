@@ -129,6 +129,13 @@ app.post('/message', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Clear wall ───────────────────────────────────────────────────────────────
+app.post('/clear-messages', (req, res) => {
+  messages = [];
+  io.emit('clear-wall');
+  res.json({ ok: true });
+});
+
 // ── Real-time ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   socket.emit('history', messages);

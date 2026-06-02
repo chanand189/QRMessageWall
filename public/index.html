@@ -52,6 +52,30 @@
       max-width: 90%;
     }
 
+    #refresh-btn {
+      margin-top: 1rem;
+      padding: 0.55rem 1.4rem;
+      border: none;
+      border-radius: 10px;
+      background: rgba(255, 80, 80, 0.18);
+      color: #ff6b6b;
+      font-size: clamp(0.75rem, 1.2vw, 0.95rem);
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      border: 1px solid rgba(255, 80, 80, 0.35);
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+
+    #refresh-btn:hover {
+      background: rgba(255, 80, 80, 0.32);
+      box-shadow: 0 0 16px rgba(255, 80, 80, 0.4);
+    }
+
+    #refresh-btn:active {
+      transform: scale(0.96);
+    }
+
     /* ── RIGHT PANEL ── */
     #right-panel {
       width: 70%;
@@ -196,6 +220,7 @@
     <img id="qr-img" src="" alt="QR Code">
     <p id="qr-label">Scan to add your message</p>
     <p id="qr-url"></p>
+    <button id="refresh-btn" title="Erase all messages from the wall">🗑 Refresh Wall</button>
   </div>
 
   <!-- RIGHT: Message Circle -->
@@ -294,6 +319,30 @@
     socket.on('new-message', (msg) => {
       spotlightQueue.push(msg);
       processQueue();
+    });
+
+    // ── Clear Wall ──
+    function clearWall() {
+      const container = document.getElementById('circle-container');
+      container.querySelectorAll('.floating-msg').forEach(el => el.remove());
+      spotlightQueue = [];
+      spotlightBusy = false;
+      const spotlight = document.getElementById('spotlight');
+      spotlight.classList.add('hidden');
+      spotlight.classList.remove('show');
+    }
+
+    document.getElementById('refresh-btn').addEventListener('click', async () => {
+      if (!confirm('Erase all messages from the wall?')) return;
+      try {
+        await fetch('/clear-messages', { method: 'POST' });
+      } catch (e) {
+        console.error('Clear failed', e);
+      }
+    });
+
+    socket.on('clear-wall', () => {
+      clearWall();
     });
 
     // ── QR Code ──
