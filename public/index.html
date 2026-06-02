@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Message Wall</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0d0d1a;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+    }
+
+    /* ── LEFT PANEL ── */
+    #left-panel {
+      width: 30%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.2rem;
+      padding: 2rem;
+      border-right: 1px solid rgba(255,255,255,0.07);
+    }
+
+    #qr-img {
+      width: min(220px, 22vw);
+      height: min(220px, 22vw);
+      border-radius: 16px;
+      box-shadow: 0 0 40px rgba(77, 150, 255, 0.35);
+      display: block;
+    }
+
+    #qr-label {
+      color: rgba(255,255,255,0.8);
+      font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: 0.03em;
+    }
+
+    #qr-url {
+      color: rgba(255,255,255,0.35);
+      font-size: clamp(0.6rem, 1vw, 0.78rem);
+      text-align: center;
+      word-break: break-all;
+      max-width: 90%;
+    }
+
+    /* ── RIGHT PANEL ── */
+    #right-panel {
+      width: 70%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── CIRCLE ── */
+    #circle-container {
+      position: relative;
+      width: min(70vh, 62vw);
+      height: min(70vh, 62vw);
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.12);
+      box-shadow:
+        0 0 60px rgba(100, 100, 255, 0.18),
+        0 0 120px rgba(100, 100, 255, 0.08),
+        inset 0 0 80px rgba(0,0,0,0.6);
+      overflow: hidden;
+      background: radial-gradient(circle at center, #16163a 0%, #0d0d1a 70%);
+    }
+
+    /* ── FLOATING MESSAGES ── */
+    .floating-msg {
+      position: absolute;
+      font-size: clamp(0.8rem, 1.8vw, 1.25rem);
+      font-weight: 700;
+      white-space: nowrap;
+      max-width: 44%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      text-shadow: 0 0 14px currentColor;
+      opacity: 0.88;
+    }
+
+    @keyframes float-a {
+      0%   { transform: translate(-50%,-50%) translate(0px, 0px) rotate(-2deg); }
+      25%  { transform: translate(-50%,-50%) translate(14px, -18px) rotate(1deg); }
+      50%  { transform: translate(-50%,-50%) translate(-10px, 10px) rotate(-1deg); }
+      75%  { transform: translate(-50%,-50%) translate(18px, 5px) rotate(2deg); }
+      100% { transform: translate(-50%,-50%) translate(0px, 0px) rotate(-2deg); }
+    }
+
+    @keyframes float-b {
+      0%   { transform: translate(-50%,-50%) translate(0px, 0px) rotate(1deg); }
+      33%  { transform: translate(-50%,-50%) translate(-22px, 14px) rotate(-2deg); }
+      66%  { transform: translate(-50%,-50%) translate(10px, -10px) rotate(1deg); }
+      100% { transform: translate(-50%,-50%) translate(0px, 0px) rotate(1deg); }
+    }
+
+    @keyframes float-c {
+      0%   { transform: translate(-50%,-50%) translate(0px, 0px) scale(1) rotate(0deg); }
+      20%  { transform: translate(-50%,-50%) translate(8px, -28px) scale(1.02) rotate(-1deg); }
+      40%  { transform: translate(-50%,-50%) translate(-14px, -14px) scale(0.98) rotate(1.5deg); }
+      60%  { transform: translate(-50%,-50%) translate(-18px, 18px) scale(1.01) rotate(-0.5deg); }
+      80%  { transform: translate(-50%,-50%) translate(11px, 10px) scale(1) rotate(1deg); }
+      100% { transform: translate(-50%,-50%) translate(0px, 0px) scale(1) rotate(0deg); }
+    }
+
+    @keyframes float-d {
+      0%,100% { transform: translate(-50%,-50%) translate(0px, 0px) rotate(-1deg); }
+      50%     { transform: translate(-50%,-50%) translate(-16px, -12px) rotate(2deg); }
+    }
+
+    /* ── SPOTLIGHT ── */
+    #spotlight {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+      padding: 0.9rem 1.8rem;
+      border-radius: 14px;
+      font-size: clamp(1rem, 2.6vw, 1.8rem);
+      font-weight: 800;
+      text-align: center;
+      max-width: 76%;
+      word-break: break-word;
+      background: rgba(13, 13, 26, 0.75);
+      backdrop-filter: blur(6px);
+      /* rainbow gradient border via box-shadow layering */
+      box-shadow:
+        0 0 0 3px rgba(255,255,255,0.15),
+        0 0 25px rgba(255,255,255,0.4),
+        0 0 55px rgba(120,100,255,0.55),
+        0 0 100px rgba(80,80,255,0.3);
+    }
+
+    #spotlight::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 17px;
+      background: linear-gradient(60deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #c77dff, #ff6fd8, #ff6b6b);
+      background-size: 300% 300%;
+      z-index: -1;
+      animation: border-spin 1.6s linear infinite;
+    }
+
+    @keyframes border-spin {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    #spotlight.hidden { display: none; }
+
+    @keyframes spotlight-appear {
+      0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.65); }
+      12%  { opacity: 1; transform: translate(-50%,-50%) scale(1.06); }
+      20%  { transform: translate(-50%,-50%) scale(1); }
+      40%  {
+        box-shadow:
+          0 0 0 3px rgba(255,255,255,0.3),
+          0 0 35px rgba(255,255,255,0.7),
+          0 0 70px rgba(120,100,255,0.9),
+          0 0 120px rgba(80,80,255,0.6);
+      }
+      65%  {
+        box-shadow:
+          0 0 0 3px rgba(255,255,255,0.15),
+          0 0 20px rgba(255,255,255,0.3),
+          0 0 45px rgba(120,100,255,0.45),
+          0 0 90px rgba(80,80,255,0.25);
+      }
+      85%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%,-50%) scale(0.88); }
+    }
+
+    #spotlight.show {
+      animation: spotlight-appear 3.4s ease-in-out forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LEFT: QR Code -->
+  <div id="left-panel">
+    <img id="qr-img" src="" alt="QR Code">
+    <p id="qr-label">Scan to add your message</p>
+    <p id="qr-url"></p>
+  </div>
+
+  <!-- RIGHT: Message Circle -->
+  <div id="right-panel">
+    <div id="circle-container">
+      <div id="spotlight" class="hidden"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const COLORS = [
+      '#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff',
+      '#c77dff', '#ff9f43', '#48dbfb', '#ff6fd8',
+      '#a8ff78', '#f7971e', '#f953c6', '#43e97b'
+    ];
+
+    const FLOAT_ANIMS = ['float-a', 'float-b', 'float-c', 'float-d'];
+
+    function randomPositionInCircle() {
+      const container = document.getElementById('circle-container');
+      const R = container.offsetWidth / 2;
+      const pad = R * 0.18;
+      const safeR = R - pad;
+      const angle = Math.random() * 2 * Math.PI;
+      const r = safeR * Math.sqrt(Math.random());
+      return {
+        left: R + r * Math.cos(angle),
+        top:  R + r * Math.sin(angle)
+      };
+    }
+
+    function pickColor() {
+      return COLORS[Math.floor(Math.random() * COLORS.length)];
+    }
+
+    function addFloatingMessage(msg) {
+      const container = document.getElementById('circle-container');
+      const el = document.createElement('div');
+      el.classList.add('floating-msg');
+      el.textContent = msg.text;
+      el.style.color = pickColor();
+
+      const pos = randomPositionInCircle();
+      el.style.left = pos.left + 'px';
+      el.style.top  = pos.top  + 'px';
+
+      const anim     = FLOAT_ANIMS[Math.floor(Math.random() * FLOAT_ANIMS.length)];
+      const duration = 22 + Math.random() * 20;
+      const delay    = Math.random() * 8;
+      el.style.animation = `${anim} ${duration.toFixed(1)}s ${delay.toFixed(1)}s ease-in-out infinite`;
+
+      container.appendChild(el);
+
+      // Keep DOM trimmed
+      const all = container.querySelectorAll('.floating-msg');
+      if (all.length > 50) all[0].remove();
+    }
+
+    let spotlightQueue = [];
+    let spotlightBusy = false;
+
+    function processQueue() {
+      if (spotlightBusy || spotlightQueue.length === 0) return;
+      spotlightBusy = true;
+      const msg = spotlightQueue.shift();
+      showSpotlight(msg);
+    }
+
+    function showSpotlight(msg) {
+      const el = document.getElementById('spotlight');
+      el.textContent = msg.text;
+      el.style.color = pickColor();
+
+      // Restart animation
+      el.classList.remove('show', 'hidden');
+      void el.offsetHeight;
+      el.classList.add('show');
+
+      setTimeout(() => {
+        el.classList.add('hidden');
+        el.classList.remove('show');
+        addFloatingMessage(msg);
+        spotlightBusy = false;
+        processQueue();
+      }, 3400);
+    }
+
+    // ── Socket.io ──
+    const socket = io();
+
+    socket.on('history', (msgs) => {
+      msgs.forEach(addFloatingMessage);
+    });
+
+    socket.on('new-message', (msg) => {
+      spotlightQueue.push(msg);
+      processQueue();
+    });
+
+    // ── QR Code ──
+    async function loadQR() {
+      try {
+        const res  = await fetch('/qrcode');
+        const data = await res.json();
+        document.getElementById('qr-img').src  = data.qr;
+        document.getElementById('qr-url').textContent = data.url;
+      } catch (e) {
+        document.getElementById('qr-label').textContent = 'Could not load QR code';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', loadQR);
+  </script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Add Your Message</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      padding: 1.2rem;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 22px;
+      padding: 2rem 1.8rem;
+      width: 100%;
+      max-width: 420px;
+      color: #fff;
+    }
+
+    h1 {
+      font-size: clamp(1.6rem, 7vw, 2rem);
+      font-weight: 800;
+      background: linear-gradient(90deg, #ff6b6b, #c77dff, #4d96ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.3rem;
+    }
+
+    .subtitle {
+      color: rgba(255,255,255,0.45);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+
+    textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.07);
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 1rem 1rem 0.7rem;
+      color: #fff;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      line-height: 1.5;
+      rows: 4;
+    }
+
+    textarea::placeholder { color: rgba(255,255,255,0.3); }
+
+    textarea:focus {
+      border-color: rgba(100,100,255,0.6);
+      box-shadow: 0 0 0 3px rgba(100,100,255,0.15);
+    }
+
+    .char-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .char-count {
+      color: rgba(255,255,255,0.3);
+      font-size: 0.78rem;
+    }
+
+    .char-count.near-limit { color: #ffd93d; }
+    .char-count.at-limit   { color: #ff6b6b; }
+
+    button {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, #4d96ff 0%, #c77dff 100%);
+      border: none;
+      border-radius: 14px;
+      color: #fff;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      min-height: 54px;
+      transition: transform 0.12s, opacity 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(77,150,255,0.3);
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.97);
+      box-shadow: 0 2px 10px rgba(77,150,255,0.2);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    .feedback {
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .feedback.success {
+      background: rgba(107,203,119,0.15);
+      border: 1.5px solid #6bcb77;
+      color: #6bcb77;
+    }
+
+    .feedback.error {
+      background: rgba(255,107,107,0.15);
+      border: 1.5px solid #ff6b6b;
+      color: #ff6b6b;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Leave a Message</h1>
+    <p class="subtitle">Your message will appear on the wall instantly</p>
+
+    <textarea
+      id="msg-input"
+      placeholder="Type something fun..."
+      maxlength="200"
+      rows="4"
+      autofocus
+    ></textarea>
+
+    <div class="char-row">
+      <span class="char-count" id="char-count">0 / 200</span>
+    </div>
+
+    <button id="submit-btn">Send to Wall</button>
+
+    <div id="feedback" class="feedback hidden"></div>
+  </div>
+
+  <script>
+    const input     = document.getElementById('msg-input');
+    const countEl   = document.getElementById('char-count');
+    const btn       = document.getElementById('submit-btn');
+    const feedback  = document.getElementById('feedback');
+
+    input.addEventListener('input', () => {
+      const len = input.value.length;
+      countEl.textContent = `${len} / 200`;
+      countEl.className = 'char-count' +
+        (len >= 200 ? ' at-limit' : len >= 160 ? ' near-limit' : '');
+    });
+
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      btn.disabled = true;
+      feedback.className = 'feedback hidden';
+
+      try {
+        const res = await fetch('/message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          feedback.textContent = 'Message sent! Watch it appear on the wall!';
+          feedback.className = 'feedback success';
+          input.value = '';
+          countEl.textContent = '0 / 200';
+          countEl.className = 'char-count';
+          setTimeout(() => { btn.disabled = false; }, 2000);
+        } else {
+          feedback.textContent = data.error || 'Failed to send. Please try again.';
+          feedback.className = 'feedback error';
+          btn.disabled = false;
+        }
+      } catch {
+        feedback.textContent = 'Failed to send. Please try again.';
+        feedback.className = 'feedback error';
+        btn.disabled = false;
+      }
+    }
+
+    btn.addEventListener('click', sendMessage);
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendMessage();
+    });
+  </script>
+</body>
+</html>
