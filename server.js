@@ -77,10 +77,11 @@ function moderateMessage(text) {
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-// Railway health check
+// Health check — must be before static middleware
 app.get('/healthz', (req, res) => res.sendStatus(200));
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.get('/submit', (req, res) => {
