@@ -662,7 +662,7 @@
     </div>
     <div class="modal-btns">
       <button class="btn btn-ghost" onclick="closeModal('modal-create-event')">Cancel</button>
-      <button class="btn btn-primary" onclick="createEvent()">Create Event</button>
+      <button class="btn btn-primary" onclick="submitNewEvent()">Create Event</button>
     </div>
   </div>
 </div>
@@ -830,7 +830,7 @@
     setTimeout(() => document.getElementById('new-event-name').focus(), 100);
   }
 
-  async function createEvent() {
+  async function submitNewEvent() {
     const name = document.getElementById('new-event-name').value.trim();
     const type = document.getElementById('new-event-type').value;
     console.log('Creating event:', { name, type });
