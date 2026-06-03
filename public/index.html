@@ -4,85 +4,64 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Message Wall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 100vw; height: 100vh; overflow: hidden; font-family: 'Inter', sans-serif; display: flex; transition: background 0.8s ease; }
 
-    body {
-      background: #0d0d1a;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      display: flex;
-    }
-
-    /* ── LEFT PANEL ── */
+    /* ── SHARED LEFT PANEL ── */
     #left-panel {
-      width: 30%;
+      width: 28%;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 1.2rem;
+      gap: 1rem;
       padding: 2rem;
-      border-right: 1px solid rgba(255,255,255,0.07);
+      flex-shrink: 0;
+      transition: all 0.8s ease;
+      position: relative;
+      z-index: 2;
     }
 
-    #qr-img {
-      width: min(220px, 22vw);
-      height: min(220px, 22vw);
-      border-radius: 16px;
-      box-shadow: 0 0 40px rgba(77, 150, 255, 0.35);
-      display: block;
-    }
-
-    #qr-label {
-      color: rgba(255,255,255,0.8);
-      font-size: clamp(0.85rem, 1.5vw, 1.1rem);
-      font-weight: 600;
-      text-align: center;
-      letter-spacing: 0.03em;
-    }
-
-    #event-name {
-      color: rgba(255,255,255,0.5);
-      font-size: clamp(0.7rem, 1.1vw, 0.9rem);
-      text-align: center;
-      font-style: italic;
-    }
-
-    #qr-url {
-      color: rgba(255,255,255,0.25);
-      font-size: clamp(0.55rem, 0.9vw, 0.72rem);
-      text-align: center;
-      word-break: break-all;
-      max-width: 90%;
-    }
+    #qr-img { width: min(200px, 20vw); height: min(200px, 20vw); border-radius: 14px; display: block; }
+    #qr-label { font-size: clamp(0.8rem, 1.4vw, 1rem); font-weight: 700; text-align: center; }
+    #event-name { font-size: clamp(0.65rem, 1vw, 0.85rem); text-align: center; opacity: 0.6; }
+    #qr-url { font-size: clamp(0.5rem, 0.8vw, 0.68rem); text-align: center; word-break: break-all; max-width: 90%; opacity: 0.35; }
 
     /* ── RIGHT PANEL ── */
-    #right-panel {
-      width: 70%;
-      display: flex;
+    #right-panel { width: 72%; position: relative; overflow: hidden; }
+
+    /* ══════════════════════════════════════════════════
+       THEME: COSMIC (default dark)
+    ══════════════════════════════════════════════════ */
+    body.theme-cosmic { background: #0d0d1a; color: #fff; }
+    body.theme-cosmic #left-panel { border-right: 1px solid rgba(255,255,255,0.07); }
+    body.theme-cosmic #qr-label { color: rgba(255,255,255,0.85); }
+    body.theme-cosmic #qr-img { box-shadow: 0 0 40px rgba(77,150,255,0.35); }
+
+    /* Cosmic circle */
+    #cosmic-container {
+      display: none;
+      position: absolute;
+      inset: 0;
       align-items: center;
       justify-content: center;
     }
+    body.theme-cosmic #cosmic-container { display: flex; }
 
-    /* ── CIRCLE ── */
-    #circle-container {
+    #circle-wrap {
       position: relative;
       width: min(70vh, 62vw);
       height: min(70vh, 62vw);
       border-radius: 50%;
       border: 2px solid rgba(255,255,255,0.12);
-      box-shadow:
-        0 0 60px rgba(100, 100, 255, 0.18),
-        0 0 120px rgba(100, 100, 255, 0.08),
-        inset 0 0 80px rgba(0,0,0,0.6);
+      box-shadow: 0 0 60px rgba(100,100,255,0.18), 0 0 120px rgba(100,100,255,0.08), inset 0 0 80px rgba(0,0,0,0.6);
       overflow: hidden;
       background: radial-gradient(circle at center, #16163a 0%, #0d0d1a 70%);
     }
 
-    /* ── FLOATING MESSAGES ── */
     .floating-msg {
       position: absolute;
       font-size: clamp(0.8rem, 1.8vw, 1.25rem);
@@ -95,192 +74,328 @@
       transform: translate(-50%, -50%);
       text-shadow: 0 0 14px currentColor;
       opacity: 0.88;
-      transition: opacity 0.4s ease;
     }
 
-    .floating-msg.mod-mode {
-      pointer-events: all;
-      cursor: pointer;
-      opacity: 0.7;
-    }
-
+    .floating-msg.mod-mode { pointer-events: all; cursor: pointer; opacity: 0.7; }
     .floating-msg.mod-mode:hover { opacity: 1; }
+    .floating-msg.selected-msg { outline: 2px solid #ff5555; border-radius: 6px; opacity: 1; background: rgba(255,85,85,0.15); padding: 2px 6px; }
 
-    .floating-msg.selected-msg {
-      outline: 2px solid #ff5555;
-      border-radius: 6px;
-      opacity: 1;
-      background: rgba(255,85,85,0.15);
-      padding: 2px 6px;
-    }
+    @keyframes float-a { 0%{transform:translate(-50%,-50%) translate(0,0) rotate(-2deg)} 25%{transform:translate(-50%,-50%) translate(14px,-18px) rotate(1deg)} 50%{transform:translate(-50%,-50%) translate(-10px,10px) rotate(-1deg)} 75%{transform:translate(-50%,-50%) translate(18px,5px) rotate(2deg)} 100%{transform:translate(-50%,-50%) translate(0,0) rotate(-2deg)} }
+    @keyframes float-b { 0%{transform:translate(-50%,-50%) translate(0,0) rotate(1deg)} 33%{transform:translate(-50%,-50%) translate(-22px,14px) rotate(-2deg)} 66%{transform:translate(-50%,-50%) translate(10px,-10px) rotate(1deg)} 100%{transform:translate(-50%,-50%) translate(0,0) rotate(1deg)} }
+    @keyframes float-c { 0%{transform:translate(-50%,-50%) scale(1) rotate(0)} 20%{transform:translate(-50%,-50%) translate(8px,-28px) scale(1.02) rotate(-1deg)} 60%{transform:translate(-50%,-50%) translate(-18px,18px) scale(1.01) rotate(-0.5deg)} 100%{transform:translate(-50%,-50%) scale(1) rotate(0)} }
+    @keyframes float-d { 0%,100%{transform:translate(-50%,-50%) translate(0,0) rotate(-1deg)} 50%{transform:translate(-50%,-50%) translate(-16px,-12px) rotate(2deg)} }
 
-    @keyframes float-a {
-      0%   { transform: translate(-50%,-50%) translate(0px, 0px) rotate(-2deg); }
-      25%  { transform: translate(-50%,-50%) translate(14px, -18px) rotate(1deg); }
-      50%  { transform: translate(-50%,-50%) translate(-10px, 10px) rotate(-1deg); }
-      75%  { transform: translate(-50%,-50%) translate(18px, 5px) rotate(2deg); }
-      100% { transform: translate(-50%,-50%) translate(0px, 0px) rotate(-2deg); }
-    }
-    @keyframes float-b {
-      0%   { transform: translate(-50%,-50%) translate(0px, 0px) rotate(1deg); }
-      33%  { transform: translate(-50%,-50%) translate(-22px, 14px) rotate(-2deg); }
-      66%  { transform: translate(-50%,-50%) translate(10px, -10px) rotate(1deg); }
-      100% { transform: translate(-50%,-50%) translate(0px, 0px) rotate(1deg); }
-    }
-    @keyframes float-c {
-      0%   { transform: translate(-50%,-50%) translate(0px, 0px) scale(1) rotate(0deg); }
-      20%  { transform: translate(-50%,-50%) translate(8px, -28px) scale(1.02) rotate(-1deg); }
-      40%  { transform: translate(-50%,-50%) translate(-14px, -14px) scale(0.98) rotate(1.5deg); }
-      60%  { transform: translate(-50%,-50%) translate(-18px, 18px) scale(1.01) rotate(-0.5deg); }
-      80%  { transform: translate(-50%,-50%) translate(11px, 10px) scale(1) rotate(1deg); }
-      100% { transform: translate(-50%,-50%) translate(0px, 0px) scale(1) rotate(0deg); }
-    }
-    @keyframes float-d {
-      0%,100% { transform: translate(-50%,-50%) translate(0px, 0px) rotate(-1deg); }
-      50%     { transform: translate(-50%,-50%) translate(-16px, -12px) rotate(2deg); }
-    }
-
-    /* ── SPOTLIGHT ── */
+    /* Cosmic spotlight */
     #spotlight {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20; padding: 0.9rem 1.8rem;
+      border-radius: 14px;
+      font-size: clamp(1rem, 2.6vw, 1.8rem);
+      font-weight: 800; text-align: center;
+      max-width: 76%; word-break: break-word;
+      background: rgba(13,13,26,0.75);
+      backdrop-filter: blur(6px);
+    }
+    #spotlight::before { content: ''; position: absolute; inset: -3px; border-radius: 17px; background: linear-gradient(60deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff,#ff6fd8,#ff6b6b); background-size: 300% 300%; z-index: -1; animation: border-spin 1.6s linear infinite; }
+    @keyframes border-spin { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+    #spotlight.hidden { display: none; }
+    @keyframes spotlight-appear { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.65)} 12%{opacity:1;transform:translate(-50%,-50%) scale(1.06)} 20%{transform:translate(-50%,-50%) scale(1)} 85%{opacity:1} 100%{opacity:0;transform:translate(-50%,-50%) scale(0.88)} }
+    #spotlight.show { animation: spotlight-appear 3.4s ease-in-out forwards; }
+
+    /* ══════════════════════════════════════════════════
+       THEME: POSTER (office quote wall)
+    ══════════════════════════════════════════════════ */
+    body.theme-poster { background: #f8f7f2; color: #1a1a2e; }
+    body.theme-poster #left-panel { border-right: 2px solid #e8e4d9; background: #fff; }
+    body.theme-poster #qr-label { color: #1a1a2e; }
+    body.theme-poster #event-name { color: #666; }
+    body.theme-poster #qr-img { box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+
+    #poster-container {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+    }
+    body.theme-poster #poster-container { display: block; }
+
+    /* Poster edge messages */
+    .poster-edge-msg {
+      position: absolute;
+      font-size: clamp(0.7rem, 1.3vw, 1rem);
+      font-weight: 700;
+      white-space: nowrap;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      opacity: 0.85;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .poster-edge-msg.mod-mode { pointer-events: all; cursor: pointer; }
+    .poster-edge-msg.selected-msg { outline: 2px solid #ff5555; border-radius: 4px; background: rgba(255,85,85,0.08); padding: 2px 6px; }
+
+    /* Poster center card */
+    #poster-center {
       position: absolute;
       left: 50%; top: 50%;
       transform: translate(-50%, -50%);
-      z-index: 20;
-      padding: 0.9rem 1.8rem;
-      border-radius: 14px;
-      font-size: clamp(1rem, 2.6vw, 1.8rem);
-      font-weight: 800;
+      width: min(480px, 70%);
+      background: #fff;
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
       text-align: center;
-      max-width: 76%;
-      word-break: break-word;
-      background: rgba(13, 13, 26, 0.75);
-      backdrop-filter: blur(6px);
-      box-shadow:
-        0 0 0 3px rgba(255,255,255,0.15),
-        0 0 25px rgba(255,255,255,0.4),
-        0 0 55px rgba(120,100,255,0.55),
-        0 0 100px rgba(80,80,255,0.3);
+      border: 2px solid #f0ece0;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.08);
     }
-    #spotlight::before {
-      content: '';
+
+    #poster-center-quote {
+      font-size: clamp(1.1rem, 2.8vw, 2rem);
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      color: #1a1a2e;
+      line-height: 1.35;
+      margin-bottom: 1rem;
+    }
+
+    #poster-center-line {
+      width: 40px; height: 3px;
+      border-radius: 2px;
+      margin: 0 auto 0.8rem;
+      background: #4d96ff;
+    }
+
+    #poster-center-sub {
+      font-size: clamp(0.72rem, 1.1vw, 0.88rem);
+      color: #999;
+      font-weight: 500;
+    }
+
+    /* Poster decorative corners */
+    .poster-corner {
       position: absolute;
-      inset: -3px;
-      border-radius: 17px;
-      background: linear-gradient(60deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #c77dff, #ff6fd8, #ff6b6b);
-      background-size: 300% 300%;
-      z-index: -1;
-      animation: border-spin 1.6s linear infinite;
+      font-size: clamp(1rem, 2vw, 1.5rem);
+      font-weight: 900;
+      font-family: 'Playfair Display', serif;
+      opacity: 0.06;
+      color: #1a1a2e;
+      pointer-events: none;
     }
-    @keyframes border-spin {
-      0%   { background-position: 0% 50%; }
-      50%  { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    #spotlight.hidden { display: none; }
-    @keyframes spotlight-appear {
-      0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.65); }
-      12%  { opacity: 1; transform: translate(-50%,-50%) scale(1.06); }
-      20%  { transform: translate(-50%,-50%) scale(1); }
-      40%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.3), 0 0 35px rgba(255,255,255,0.7), 0 0 70px rgba(120,100,255,0.9), 0 0 120px rgba(80,80,255,0.6); }
-      65%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.15), 0 0 20px rgba(255,255,255,0.3), 0 0 45px rgba(120,100,255,0.45), 0 0 90px rgba(80,80,255,0.25); }
-      85%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
-      100% { opacity: 0; transform: translate(-50%,-50%) scale(0.88); }
-    }
-    #spotlight.show { animation: spotlight-appear 3.4s ease-in-out forwards; }
 
-    /* ── MOD TOOLBAR ── */
-    #mod-toolbar {
+    /* ══════════════════════════════════════════════════
+       THEME: NEON (vibrant dark)
+    ══════════════════════════════════════════════════ */
+    body.theme-neon { background: #050510; color: #fff; }
+    body.theme-neon #left-panel { border-right: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02); }
+    body.theme-neon #qr-label { color: #fff; }
+    body.theme-neon #qr-img { box-shadow: 0 0 30px rgba(255,0,200,0.4); }
+
+    #neon-container {
       display: none;
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(13,13,26,0.92);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 50px;
-      padding: 10px 20px;
-      gap: 10px;
+      position: absolute;
+      inset: 0;
       align-items: center;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 4px 32px rgba(0,0,0,0.5);
-      z-index: 100;
-      flex-wrap: wrap;
       justify-content: center;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    body.theme-neon #neon-container { display: flex; }
+
+    #neon-main {
+      font-size: clamp(1.4rem, 4vw, 3.5rem);
+      font-weight: 800;
+      font-family: 'Space Grotesk', sans-serif;
+      text-align: center;
+      max-width: 85%;
+      word-break: break-word;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06d6a0);
+      background-size: 300% 300%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: neon-shift 4s ease-in-out infinite;
+    }
+    @keyframes neon-shift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+
+    .neon-old-msg {
+      font-size: clamp(0.7rem, 1.4vw, 1rem);
+      font-weight: 600;
+      font-family: 'Space Grotesk', sans-serif;
+      opacity: 0.45;
+      white-space: nowrap;
+      max-width: 80%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: rgba(255,255,255,0.6);
+      pointer-events: none;
     }
 
+    .neon-old-msg.mod-mode { pointer-events: all; cursor: pointer; opacity: 0.7; }
+    .neon-old-msg.selected-msg { outline: 2px solid #ff006e; border-radius: 4px; background: rgba(255,0,110,0.1); padding: 2px 8px; opacity: 1; }
+
+    #neon-ticker {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 36px;
+      overflow: hidden;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+    }
+
+    /* ══════════════════════════════════════════════════
+       THEME: MINIMAL (clean light)
+    ══════════════════════════════════════════════════ */
+    body.theme-minimal { background: #fafafa; color: #1a1a1a; }
+    body.theme-minimal #left-panel { border-right: 1px solid #e8e8e8; }
+    body.theme-minimal #qr-label { color: #1a1a1a; }
+    body.theme-minimal #qr-img { box-shadow: 0 2px 16px rgba(0,0,0,0.1); border: 1px solid #eee; }
+
+    #minimal-container {
+      display: none;
+      position: absolute;
+      inset: 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+    body.theme-minimal #minimal-container { display: flex; }
+
+    #minimal-latest {
+      font-size: clamp(1.6rem, 4.5vw, 4rem);
+      font-weight: 800;
+      font-family: 'Inter', sans-serif;
+      color: #1a1a1a;
+      text-align: center;
+      max-width: 85%;
+      line-height: 1.15;
+      word-break: break-word;
+      letter-spacing: -0.03em;
+      padding: 2rem;
+      border-bottom: 3px solid #1a1a1a;
+      margin-bottom: 2rem;
+    }
+
+    #minimal-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      max-width: 85%;
+      width: 100%;
+      padding: 0 2rem;
+      max-height: 40vh;
+      overflow: hidden;
+    }
+
+    .minimal-old {
+      font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+      color: #999;
+      font-weight: 500;
+      border-left: 3px solid #e8e8e8;
+      padding-left: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+
+    .minimal-old.mod-mode { pointer-events: all; cursor: pointer; }
+    .minimal-old.selected-msg { border-left-color: #ff5555; background: rgba(255,85,85,0.05); color: #ff5555; }
+
+    /* ══════════════════════════════════════════════════
+       PHOTO OVERLAY (all themes)
+    ══════════════════════════════════════════════════ */
+    #photo-overlay {
+      display: none; opacity: 0;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 200;
+      align-items: center; justify-content: center; flex-direction: column;
+      transition: opacity 0.5s ease;
+    }
+    #photo-img { max-width: 85vw; max-height: 80vh; border-radius: 16px; object-fit: contain; }
+    #photo-caption-text { color: rgba(255,255,255,0.8); font-size: 1.1rem; font-weight: 600; margin-top: 16px; text-align: center; max-width: 70vw; display: none; }
+    #photo-timer { position: absolute; top: 20px; right: 24px; color: rgba(255,255,255,0.3); font-size: 1.5rem; font-weight: 700; }
+
+    /* ══════════════════════════════════════════════════
+       MOD CONTROLS (all themes)
+    ══════════════════════════════════════════════════ */
+    #mod-hint {
+      display: none; position: fixed; top: 16px; right: 16px;
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px; padding: 6px 12px;
+      font-size: 0.72rem; color: rgba(255,255,255,0.6);
+      cursor: pointer; z-index: 99;
+    }
+    body.theme-poster #mod-hint, body.theme-minimal #mod-hint {
+      background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.15);
+      color: rgba(0,0,0,0.6);
+    }
+    #mod-hint.visible { display: block; }
+
+    #mod-toolbar {
+      display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(13,13,26,0.95); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 50px; padding: 10px 16px; gap: 8px; align-items: center;
+      backdrop-filter: blur(12px); z-index: 100; flex-wrap: wrap; justify-content: center;
+    }
     #mod-toolbar.visible { display: flex; }
 
-    .mod-label {
-      font-size: 0.7rem;
-      color: rgba(255,255,255,0.35);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-right: 4px;
-    }
+    .mod-btn { padding: 6px 12px; border-radius: 20px; border: none; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; }
+    .mod-btn:hover { opacity: 0.8; }
+    .mod-btn-red    { background: rgba(255,85,85,0.2);   color: #ff5555; border: 1px solid rgba(255,85,85,0.3); }
+    .mod-btn-amber  { background: rgba(245,166,35,0.2);  color: #f5a623; border: 1px solid rgba(245,166,35,0.3); }
+    .mod-btn-purple { background: rgba(124,111,205,0.2); color: #a89ce8; border: 1px solid rgba(124,111,205,0.3); }
+    .mod-btn-ghost  { background: rgba(255,255,255,0.07);color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.12); }
+    .mod-btn-theme  { background: rgba(77,150,255,0.2);  color: #4d96ff; border: 1px solid rgba(77,150,255,0.3); }
+    .mod-divider    { width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 2px; }
 
-    .mod-btn {
-      padding: 6px 14px;
-      border-radius: 20px;
-      border: none;
-      font-size: 0.78rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-
-    .mod-btn:hover  { opacity: 0.85; }
-    .mod-btn:active { transform: scale(0.96); }
-
-    .mod-btn-red    { background: rgba(255,85,85,0.2);  color: #ff5555; border: 1px solid rgba(255,85,85,0.3); }
-    .mod-btn-amber  { background: rgba(245,166,35,0.2); color: #f5a623; border: 1px solid rgba(245,166,35,0.3); }
-    .mod-btn-purple { background: rgba(124,111,205,0.2);color: #a89ce8; border: 1px solid rgba(124,111,205,0.3); }
-    .mod-btn-ghost  { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.12); }
-
-    .mod-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 4px; }
-
-    /* ── DELETE BAR (mod select mode) ── */
     #mod-delete-bar {
-      display: none;
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255,85,85,0.15);
-      border: 1px solid rgba(255,85,85,0.3);
-      border-radius: 50px;
-      padding: 10px 20px;
-      gap: 12px;
-      align-items: center;
-      backdrop-filter: blur(12px);
-      z-index: 101;
+      display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,85,85,0.15); border: 1px solid rgba(255,85,85,0.3);
+      border-radius: 50px; padding: 10px 20px; gap: 12px; align-items: center;
+      backdrop-filter: blur(12px); z-index: 101;
     }
-
     #mod-delete-bar.visible { display: flex; }
     #del-count { font-size: 0.8rem; color: #ff8080; font-weight: 600; }
 
-    /* ── MOD TOGGLE HINT ── */
-    #mod-hint {
-      display: none;
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      background: rgba(124,111,205,0.15);
-      border: 1px solid rgba(124,111,205,0.25);
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 0.72rem;
-      color: rgba(255,255,255,0.4);
-      cursor: pointer;
-      z-index: 99;
+    /* Theme picker modal */
+    #theme-picker {
+      display: none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: rgba(13,13,26,0.97); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 16px; padding: 16px; gap: 10px; flex-wrap: wrap; justify-content: center;
+      backdrop-filter: blur(12px); z-index: 102; max-width: 400px;
     }
+    #theme-picker.visible { display: flex; }
+    #theme-picker h4 { width: 100%; text-align: center; font-size: 0.78rem; color: rgba(255,255,255,0.5); margin-bottom: 4px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 
-    #mod-hint.visible { display: block; }
-    #mod-hint:hover { color: rgba(255,255,255,0.7); }
+    .theme-card {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 10px 14px; border-radius: 12px; cursor: pointer;
+      border: 2px solid transparent; transition: border-color 0.2s;
+      min-width: 80px;
+    }
+    .theme-card:hover { border-color: rgba(255,255,255,0.2); }
+    .theme-card.active { border-color: #4d96ff; }
+    .theme-card .preview { width: 52px; height: 36px; border-radius: 6px; }
+    .theme-card .name { font-size: 0.72rem; color: rgba(255,255,255,0.7); font-weight: 600; }
+
+    .preview-cosmic  { background: linear-gradient(135deg, #0d0d1a 50%, #4d96ff 100%); }
+    .preview-poster  { background: linear-gradient(135deg, #fff 50%, #ffd93d 100%); border: 1px solid #eee; }
+    .preview-neon    { background: linear-gradient(135deg, #050510 30%, #ff006e 70%, #3a86ff 100%); }
+    .preview-minimal { background: linear-gradient(135deg, #fafafa 50%, #1a1a1a 100%); border: 1px solid #eee; }
   </style>
 </head>
-<body>
+<body class="theme-cosmic">
 
-  <!-- LEFT: QR + Event info -->
+  <!-- LEFT: QR + event info -->
   <div id="left-panel">
     <img id="qr-img" src="" alt="QR Code">
     <p id="qr-label">Scan to add your message</p>
@@ -288,70 +403,352 @@
     <p id="qr-url"></p>
   </div>
 
-  <!-- RIGHT: Message Circle -->
+  <!-- RIGHT: Theme containers -->
   <div id="right-panel">
-    <div id="circle-container">
-      <div id="spotlight" class="hidden"></div>
+
+    <!-- COSMIC theme -->
+    <div id="cosmic-container">
+      <div id="circle-wrap">
+        <div id="spotlight" class="hidden"></div>
+      </div>
     </div>
+
+    <!-- POSTER theme -->
+    <div id="poster-container">
+      <div class="poster-corner" style="top:20px;left:20px;font-size:4rem">"</div>
+      <div class="poster-corner" style="bottom:20px;right:20px;font-size:4rem;transform:rotate(180deg)">"</div>
+      <div id="poster-edge-msgs"></div>
+      <div id="poster-center">
+        <div id="poster-center-line"></div>
+        <div id="poster-center-quote">Waiting for the first message...</div>
+        <div id="poster-center-sub">latest message</div>
+      </div>
+    </div>
+
+    <!-- NEON theme -->
+    <div id="neon-container">
+      <div id="neon-main">Waiting for messages...</div>
+      <div id="neon-old-msgs" style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:1rem;width:100%"></div>
+    </div>
+
+    <!-- MINIMAL theme -->
+    <div id="minimal-container">
+      <div id="minimal-latest">Waiting for messages...</div>
+      <div id="minimal-list"></div>
+    </div>
+
   </div>
 
   <!-- PHOTO OVERLAY -->
   <div id="photo-overlay" style="display:none;opacity:0;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:200;align-items:center;justify-content:center;flex-direction:column;transition:opacity 0.5s ease;">
-    <img id="photo-img" src="" alt="" style="max-width:85vw;max-height:80vh;border-radius:16px;box-shadow:0 0 60px rgba(255,255,255,0.15);object-fit:contain;"/>
-    <div id="photo-caption-text" style="color:rgba(255,255,255,0.8);font-size:1.1rem;font-weight:600;margin-top:16px;text-align:center;max-width:70vw;display:none;"></div>
-    <div id="photo-timer" style="position:absolute;top:20px;right:24px;color:rgba(255,255,255,0.3);font-size:1.5rem;font-weight:700;"></div>
+    <img id="photo-img" src="" alt=""/>
+    <div id="photo-caption-text"></div>
+    <div id="photo-timer"></div>
   </div>
 
-  <!-- MOD HINT (top-right, only for logged-in mods) -->
-  <div id="mod-hint" onclick="toggleModMode()" title="Toggle moderator controls">🛡 Mod Controls</div>
+  <!-- MOD HINT -->
+  <div id="mod-hint" onclick="toggleModMode()">🛡 Mod Controls</div>
 
-  <!-- MOD TOOLBAR (bottom, floating) -->
+  <!-- MOD TOOLBAR -->
   <div id="mod-toolbar">
-    <span class="mod-label">Wall</span>
+    <span style="font-size:0.65rem;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.08em">Wall</span>
     <button class="mod-btn mod-btn-red"    onclick="modRefresh()">🗑 Refresh</button>
     <div class="mod-divider"></div>
-    <span class="mod-label">Trim</span>
+    <span style="font-size:0.65rem;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.08em">Trim</span>
     <button class="mod-btn mod-btn-amber"  onclick="modTrim(5)">5</button>
     <button class="mod-btn mod-btn-amber"  onclick="modTrim(10)">10</button>
     <button class="mod-btn mod-btn-amber"  onclick="modTrim(15)">15</button>
     <div class="mod-divider"></div>
-    <button class="mod-btn mod-btn-purple" onclick="enterSelectMode()">☑ Select &amp; Delete</button>
+    <button class="mod-btn mod-btn-purple" onclick="enterSelectMode()">☑ Select</button>
     <div class="mod-divider"></div>
-    <button class="mod-btn mod-btn-ghost"  onclick="toggleModMode()">✕ Hide</button>
+    <button class="mod-btn mod-btn-theme"  onclick="toggleThemePicker()">🎨 Theme</button>
+    <div class="mod-divider"></div>
+    <button class="mod-btn mod-btn-ghost"  onclick="toggleModMode()">✕</button>
   </div>
 
-  <!-- DELETE BAR (shown in select mode) -->
+  <!-- DELETE BAR -->
   <div id="mod-delete-bar">
     <span id="del-count">0 selected</span>
-    <button class="mod-btn mod-btn-ghost"  onclick="exitSelectMode()">Cancel</button>
-    <button class="mod-btn mod-btn-red"    onclick="deleteSelectedMsgs()">🗑 Delete</button>
+    <button class="mod-btn mod-btn-ghost" onclick="exitSelectMode()">Cancel</button>
+    <button class="mod-btn mod-btn-red"   onclick="deleteSelectedMsgs()">🗑 Delete</button>
+  </div>
+
+  <!-- THEME PICKER -->
+  <div id="theme-picker">
+    <h4>Wall Theme</h4>
+    <div class="theme-card active" id="tc-cosmic"  onclick="changeTheme('cosmic')">
+      <div class="preview preview-cosmic"></div>
+      <div class="name">Cosmic</div>
+    </div>
+    <div class="theme-card" id="tc-poster"  onclick="changeTheme('poster')">
+      <div class="preview preview-poster"></div>
+      <div class="name">Poster</div>
+    </div>
+    <div class="theme-card" id="tc-neon"    onclick="changeTheme('neon')">
+      <div class="preview preview-neon"></div>
+      <div class="name">Neon</div>
+    </div>
+    <div class="theme-card" id="tc-minimal" onclick="changeTheme('minimal')">
+      <div class="preview preview-minimal"></div>
+      <div class="name">Minimal</div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const COLORS     = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f43','#48dbfb','#ff6fd8','#a8ff78','#f7971e','#f953c6','#43e97b'];
+    const COLORS      = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f43','#48dbfb','#ff6fd8','#a8ff78','#f953c6'];
+    const POSTER_COLORS = ['#4d96ff','#1db887','#f5a623','#ff6b6b','#c77dff','#ff6fd8','#6bcb77'];
     const FLOAT_ANIMS = ['float-a','float-b','float-c','float-d'];
 
-    let isMod        = false;
-    let modModeOn    = false;
-    let selectMode   = false;
-    let selectedIds  = new Set();
+    let currentTheme  = 'cosmic';
+    let messages      = [];
+    let isMod         = false;
+    let modModeOn     = false;
+    let selectMode    = false;
+    let selectedIds   = new Set();
+    let spotlightQueue = [];
+    let spotlightBusy  = false;
+    const wallRegion   = new URLSearchParams(window.location.search).get('region') || 'us';
 
-    // ── Check if logged in as mod/admin ──────────────────────
+    // ── Theme system ──────────────────────────────────────────
+    async function applyTheme(theme) {
+      currentTheme = theme;
+      document.body.className = `theme-${theme}`;
+      document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+      const tc = document.getElementById(`tc-${theme}`);
+      if (tc) tc.classList.add('active');
+      renderAllThemes();
+    }
+
+    async function changeTheme(theme) {
+      applyTheme(theme);
+      toggleThemePicker();
+      try {
+        await fetch('/theme', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ theme }),
+        });
+      } catch {}
+    }
+
+    function toggleThemePicker() {
+      document.getElementById('theme-picker').classList.toggle('visible');
+    }
+
+    // ── Render all themes with current messages ───────────────
+    function renderAllThemes() {
+      renderCosmic();
+      renderPoster();
+      renderNeon();
+      renderMinimal();
+    }
+
+    // ── COSMIC ────────────────────────────────────────────────
+    function pickColor() { return COLORS[Math.floor(Math.random() * COLORS.length)]; }
+
+    function randomPositionInCircle() {
+      const wrap = document.getElementById('circle-wrap');
+      const R    = wrap.offsetWidth / 2;
+      const pad  = R * 0.18;
+      const safeR = R - pad;
+      const angle = Math.random() * 2 * Math.PI;
+      const r     = safeR * Math.sqrt(Math.random());
+      return { left: R + r * Math.cos(angle), top: R + r * Math.sin(angle) };
+    }
+
+    function addCosmicMessage(msg) {
+      const wrap = document.getElementById('circle-wrap');
+      const el   = document.createElement('div');
+      el.classList.add('floating-msg');
+      el.dataset.id  = msg.id;
+      el.textContent = msg.text;
+      el.style.color = pickColor();
+      const pos = randomPositionInCircle();
+      el.style.left  = pos.left + 'px';
+      el.style.top   = pos.top  + 'px';
+      const anim = FLOAT_ANIMS[Math.floor(Math.random() * FLOAT_ANIMS.length)];
+      el.style.animation = `${anim} ${(22 + Math.random() * 20).toFixed(1)}s ${(Math.random() * 8).toFixed(1)}s ease-in-out infinite`;
+      if (selectMode) { el.classList.add('mod-mode'); el.addEventListener('click', toggleMsgSelect); }
+      wrap.appendChild(el);
+      const all = wrap.querySelectorAll('.floating-msg');
+      if (all.length > 50) all[0].remove();
+    }
+
+    function renderCosmic() {
+      const wrap = document.getElementById('circle-wrap');
+      wrap.querySelectorAll('.floating-msg').forEach(el => el.remove());
+      messages.forEach(addCosmicMessage);
+    }
+
+    // Spotlight
+    function processQueue() {
+      if (spotlightBusy || !spotlightQueue.length) return;
+      spotlightBusy = true;
+      const msg = spotlightQueue.shift();
+      const el  = document.getElementById('spotlight');
+      el.textContent = msg.text;
+      el.style.color = pickColor();
+      el.classList.remove('show', 'hidden');
+      void el.offsetHeight;
+      el.classList.add('show');
+      setTimeout(() => {
+        el.classList.add('hidden');
+        el.classList.remove('show');
+        addCosmicMessage(msg);
+        spotlightBusy = false;
+        processQueue();
+      }, 3400);
+    }
+
+    // ── POSTER ────────────────────────────────────────────────
+    function renderPoster() {
+      const container = document.getElementById('poster-container');
+      const edgeEl    = document.getElementById('poster-edge-msgs');
+      const centerQ   = document.getElementById('poster-center-quote');
+      const centerLine = document.getElementById('poster-center-line');
+
+      edgeEl.querySelectorAll('.poster-edge-msg').forEach(e => e.remove());
+
+      if (!messages.length) {
+        centerQ.textContent = 'Waiting for the first message...';
+        centerLine.style.background = '#4d96ff';
+        return;
+      }
+
+      // Latest message in center
+      const latest = messages[messages.length - 1];
+      centerQ.textContent = latest.text;
+      const col = POSTER_COLORS[Math.floor(Math.random() * POSTER_COLORS.length)];
+      centerLine.style.background = col;
+
+      // Older messages around edges
+      const older = messages.slice(0, -1).slice(-16);
+      const W     = container.offsetWidth  || 800;
+      const H     = container.offsetHeight || 600;
+      const cx    = W / 2;
+      const cy    = H / 2;
+
+      older.forEach((m, i) => {
+        const el    = document.createElement('div');
+        el.classList.add('poster-edge-msg');
+        el.dataset.id  = m.id;
+        el.textContent = m.text;
+        el.style.color = POSTER_COLORS[i % POSTER_COLORS.length];
+        if (selectMode) { el.classList.add('mod-mode'); el.addEventListener('click', toggleMsgSelect); }
+
+        // Distribute around edges
+        const zone = i % 4;
+        let x, y;
+        const margin = 30;
+        if (zone === 0)      { x = margin + Math.random() * (cx - 220); y = margin + Math.random() * (H * 0.35); }
+        else if (zone === 1) { x = cx + 80 + Math.random() * (W - cx - 200); y = margin + Math.random() * (H * 0.35); }
+        else if (zone === 2) { x = margin + Math.random() * (cx - 220); y = H * 0.6 + Math.random() * (H * 0.3); }
+        else                 { x = cx + 80 + Math.random() * (W - cx - 200); y = H * 0.6 + Math.random() * (H * 0.3); }
+
+        el.style.left    = x + 'px';
+        el.style.top     = y + 'px';
+        el.style.transform = `rotate(${(Math.random() - 0.5) * 10}deg)`;
+        el.style.fontSize  = (0.72 + Math.random() * 0.4) + 'rem';
+        container.appendChild(el);
+      });
+    }
+
+    // ── NEON ──────────────────────────────────────────────────
+    function renderNeon() {
+      const mainEl  = document.getElementById('neon-main');
+      const oldEl   = document.getElementById('neon-old-msgs');
+      oldEl.querySelectorAll('.neon-old-msg').forEach(e => e.remove());
+
+      if (!messages.length) { mainEl.textContent = 'Waiting for messages...'; return; }
+
+      const latest = messages[messages.length - 1];
+      mainEl.textContent = latest.text;
+
+      messages.slice(0, -1).slice(-5).reverse().forEach(m => {
+        const el = document.createElement('div');
+        el.classList.add('neon-old-msg');
+        el.dataset.id  = m.id;
+        el.textContent = m.text;
+        if (selectMode) { el.classList.add('mod-mode'); el.addEventListener('click', toggleMsgSelect); }
+        oldEl.appendChild(el);
+      });
+    }
+
+    // ── MINIMAL ───────────────────────────────────────────────
+    function renderMinimal() {
+      const latestEl = document.getElementById('minimal-latest');
+      const listEl   = document.getElementById('minimal-list');
+      listEl.querySelectorAll('.minimal-old').forEach(e => e.remove());
+
+      if (!messages.length) { latestEl.textContent = 'Waiting for messages...'; return; }
+
+      const latest = messages[messages.length - 1];
+      latestEl.textContent = latest.text;
+
+      messages.slice(0, -1).slice(-6).reverse().forEach(m => {
+        const el = document.createElement('div');
+        el.classList.add('minimal-old');
+        el.dataset.id  = m.id;
+        el.textContent = m.text;
+        if (selectMode) { el.classList.add('mod-mode'); el.addEventListener('click', toggleMsgSelect); }
+        listEl.appendChild(el);
+      });
+    }
+
+    // ── Socket.io ─────────────────────────────────────────────
+    const socket = io();
+
+    socket.on('history', msgs => {
+      messages = msgs;
+      renderAllThemes();
+    });
+
+    socket.on('new-message', msg => {
+      messages.push(msg);
+      // Cosmic gets spotlight treatment; others re-render
+      if (currentTheme === 'cosmic') {
+        spotlightQueue.push(msg);
+        processQueue();
+        // Other themes just re-render
+        renderPoster(); renderNeon(); renderMinimal();
+      } else {
+        renderAllThemes();
+      }
+    });
+
+    socket.on('clear-wall', () => {
+      messages = [];
+      spotlightQueue = []; spotlightBusy = false;
+      const sp = document.getElementById('spotlight');
+      sp.classList.add('hidden'); sp.classList.remove('show');
+      renderAllThemes();
+    });
+
+    socket.on('hide-messages', ids => {
+      messages = messages.filter(m => !ids.includes(m.id));
+      ids.forEach(id => document.querySelector(`[data-id="${id}"]`)?.remove());
+      spotlightQueue = spotlightQueue.filter(m => !ids.includes(m.id));
+      renderNeon(); renderMinimal(); renderPoster();
+    });
+
+    socket.on('remove-messages', ids => {
+      messages = messages.filter(m => !ids.includes(m.id));
+      ids.forEach(id => document.querySelector(`[data-id="${id}"]`)?.remove());
+      spotlightQueue = spotlightQueue.filter(m => !ids.includes(m.id));
+      renderNeon(); renderMinimal(); renderPoster();
+    });
+
+    socket.on('theme-changed', ({ theme }) => applyTheme(theme));
+
+    // ── Mod controls ──────────────────────────────────────────
     async function checkAuth() {
       try {
         let res = await fetch('/auth/me', { credentials: 'include' });
-
-        // Token may be expired — try refreshing once
         if (res.status === 401) {
-          const refreshRes = await fetch('/auth/refresh', {
-            method: 'POST', credentials: 'include'
-          });
-          if (refreshRes.ok) {
-            res = await fetch('/auth/me', { credentials: 'include' });
-          }
+          const r = await fetch('/auth/refresh', { method: 'POST', credentials: 'include' });
+          if (r.ok) res = await fetch('/auth/me', { credentials: 'include' });
         }
-
         if (!res.ok) return;
         const data = await res.json();
         const role = data.user?.role;
@@ -362,14 +759,13 @@
       } catch {}
     }
 
-    // ── Toggle mod toolbar ────────────────────────────────────
     function toggleModMode() {
       modModeOn = !modModeOn;
       document.getElementById('mod-toolbar').classList.toggle('visible', modModeOn);
+      document.getElementById('theme-picker').classList.remove('visible');
       if (!modModeOn) exitSelectMode();
     }
 
-    // ── Mod actions ───────────────────────────────────────────
     async function modRefresh() {
       if (!confirm('Refresh wall — hide all messages?')) return;
       await fetch('/clear-messages', { method: 'POST', credentials: 'include' });
@@ -383,23 +779,21 @@
       });
     }
 
-    // ── Select mode ───────────────────────────────────────────
     function enterSelectMode() {
       selectMode = true;
       document.getElementById('mod-toolbar').classList.remove('visible');
       document.getElementById('mod-delete-bar').classList.add('visible');
-      document.querySelectorAll('.floating-msg').forEach(el => {
+      document.querySelectorAll('.floating-msg,.poster-edge-msg,.neon-old-msg,.minimal-old').forEach(el => {
         el.classList.add('mod-mode');
         el.addEventListener('click', toggleMsgSelect);
       });
     }
 
     function exitSelectMode() {
-      selectMode   = false;
-      selectedIds.clear();
+      selectMode = false; selectedIds.clear();
       document.getElementById('mod-delete-bar').classList.remove('visible');
       if (modModeOn) document.getElementById('mod-toolbar').classList.add('visible');
-      document.querySelectorAll('.floating-msg').forEach(el => {
+      document.querySelectorAll('.floating-msg,.poster-edge-msg,.neon-old-msg,.minimal-old').forEach(el => {
         el.classList.remove('mod-mode', 'selected-msg');
         el.removeEventListener('click', toggleMsgSelect);
       });
@@ -409,13 +803,8 @@
     function toggleMsgSelect(e) {
       const id = e.currentTarget.dataset.id;
       if (!id) return;
-      if (selectedIds.has(id)) {
-        selectedIds.delete(id);
-        e.currentTarget.classList.remove('selected-msg');
-      } else {
-        selectedIds.add(id);
-        e.currentTarget.classList.add('selected-msg');
-      }
+      if (selectedIds.has(id)) { selectedIds.delete(id); e.currentTarget.classList.remove('selected-msg'); }
+      else                     { selectedIds.add(id);    e.currentTarget.classList.add('selected-msg'); }
       updateDelCount();
     }
 
@@ -434,117 +823,8 @@
       exitSelectMode();
     }
 
-    // ── Floating messages ─────────────────────────────────────
-    function randomPositionInCircle() {
-      const container = document.getElementById('circle-container');
-      const R   = container.offsetWidth / 2;
-      const pad = R * 0.18;
-      const safeR = R - pad;
-      const angle = Math.random() * 2 * Math.PI;
-      const r     = safeR * Math.sqrt(Math.random());
-      return { left: R + r * Math.cos(angle), top: R + r * Math.sin(angle) };
-    }
-
-    function pickColor() {
-      return COLORS[Math.floor(Math.random() * COLORS.length)];
-    }
-
-    function addFloatingMessage(msg) {
-      const container = document.getElementById('circle-container');
-      const el = document.createElement('div');
-      el.classList.add('floating-msg');
-      el.dataset.id  = msg.id;
-      el.textContent = msg.text;
-      el.style.color = pickColor();
-
-      const pos = randomPositionInCircle();
-      el.style.left = pos.left + 'px';
-      el.style.top  = pos.top  + 'px';
-
-      const anim     = FLOAT_ANIMS[Math.floor(Math.random() * FLOAT_ANIMS.length)];
-      const duration = 22 + Math.random() * 20;
-      const delay    = Math.random() * 8;
-      el.style.animation = `${anim} ${duration.toFixed(1)}s ${delay.toFixed(1)}s ease-in-out infinite`;
-
-      // If in select mode, make clickable immediately
-      if (selectMode) {
-        el.classList.add('mod-mode');
-        el.addEventListener('click', toggleMsgSelect);
-      }
-
-      container.appendChild(el);
-
-      // Keep DOM trimmed
-      const all = container.querySelectorAll('.floating-msg');
-      if (all.length > 50) all[0].remove();
-    }
-
-    // ── Spotlight ─────────────────────────────────────────────
-    let spotlightQueue = [];
-    let spotlightBusy  = false;
-
-    function processQueue() {
-      if (spotlightBusy || spotlightQueue.length === 0) return;
-      spotlightBusy = true;
-      showSpotlight(spotlightQueue.shift());
-    }
-
-    function showSpotlight(msg) {
-      const el = document.getElementById('spotlight');
-      el.textContent = msg.text;
-      el.style.color = pickColor();
-      el.classList.remove('show', 'hidden');
-      void el.offsetHeight;
-      el.classList.add('show');
-      setTimeout(() => {
-        el.classList.add('hidden');
-        el.classList.remove('show');
-        addFloatingMessage(msg);
-        spotlightBusy = false;
-        processQueue();
-      }, 3400);
-    }
-
-    // ── Clear wall ────────────────────────────────────────────
-    function clearWall() {
-      document.getElementById('circle-container')
-        .querySelectorAll('.floating-msg').forEach(el => el.remove());
-      spotlightQueue = [];
-      spotlightBusy  = false;
-      const spotlight = document.getElementById('spotlight');
-      spotlight.classList.add('hidden');
-      spotlight.classList.remove('show');
-    }
-
-    // ── Socket.io ─────────────────────────────────────────────
-    const socket = io();
-
-    socket.on('history', msgs => msgs.forEach(addFloatingMessage));
-
-    socket.on('new-message', msg => {
-      spotlightQueue.push(msg);
-      processQueue();
-    });
-
-    socket.on('clear-wall',      ()   => clearWall());
-
-    socket.on('hide-messages',   ids  => {
-      ids.forEach(id => {
-        document.querySelector(`[data-id="${id}"]`)?.remove();
-        spotlightQueue = spotlightQueue.filter(m => m.id !== id);
-      });
-    });
-
-    socket.on('remove-messages', ids  => {
-      ids.forEach(id => {
-        document.querySelector(`[data-id="${id}"]`)?.remove();
-        spotlightQueue = spotlightQueue.filter(m => m.id !== id);
-      });
-    });
-
     // ── Photo slideshow ───────────────────────────────────────
     let photoTimerRunning = false;
-    const wallRegion = new URLSearchParams(window.location.search).get('region') || 'us';
 
     async function startPhotoTimer() {
       if (photoTimerRunning) return;
@@ -557,16 +837,9 @@
       try {
         const res  = await fetch(`/photos/next?region=${wallRegion}`);
         const data = await res.json();
-
-        if (data.photo) {
-          await displayPhoto(data.photo);
-        } else {
-          // No photos queued — check again in 3 seconds
-          setTimeout(checkNextPhoto, 3000);
-        }
-      } catch {
-        setTimeout(checkNextPhoto, 5000);
-      }
+        if (data.photo) await displayPhoto(data.photo);
+        else setTimeout(checkNextPhoto, 3000);
+      } catch { setTimeout(checkNextPhoto, 5000); }
     }
 
     async function displayPhoto(photo) {
@@ -575,76 +848,59 @@
         const img     = document.getElementById('photo-img');
         const caption = document.getElementById('photo-caption-text');
         const timer   = document.getElementById('photo-timer');
-
         img.src = photo.storageUrl;
-        caption.textContent = photo.caption || '';
+        caption.textContent   = photo.caption || '';
         caption.style.display = photo.caption ? 'block' : 'none';
-
-        overlay.style.display = 'flex';
-        void overlay.offsetHeight;
-        overlay.style.opacity = '1';
-
-        // Countdown timer
-        const dur    = (photo.durationSec || 4) * 1000;
-        const start  = Date.now();
-        const tick   = setInterval(() => {
-          const remaining = Math.ceil((dur - (Date.now() - start)) / 1000);
-          timer.textContent = remaining > 0 ? remaining : '';
+        overlay.style.display = 'flex'; void overlay.offsetHeight; overlay.style.opacity = '1';
+        const dur = (photo.durationSec || 4) * 1000;
+        const start = Date.now();
+        const tick  = setInterval(() => {
+          const r = Math.ceil((dur - (Date.now() - start)) / 1000);
+          timer.textContent = r > 0 ? r : '';
         }, 200);
-
         setTimeout(async () => {
           clearInterval(tick);
           overlay.style.opacity = '0';
           setTimeout(async () => {
-            overlay.style.display = 'none';
-            img.src = '';
-
-            // Mark as displayed — deletes from R2
-            try {
-              await fetch(`/photos/${photo.id}/displayed`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ region: wallRegion }),
-              });
-            } catch {}
-
-            resolve();
-            checkNextPhoto();
+            overlay.style.display = 'none'; img.src = '';
+            try { await fetch(`/photos/${photo.id}/displayed`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ region: wallRegion }) }); } catch {}
+            resolve(); checkNextPhoto();
           }, 500);
         }, dur);
       });
     }
 
-    // Start photo timer on load
     startPhotoTimer();
-
-    // When a new photo is queued, start the timer if not running
     socket.on('photo-queued', () => startPhotoTimer());
-    async function loadQR() {
+
+    // ── QR + event + theme ────────────────────────────────────
+    async function loadInit() {
       try {
         const res  = await fetch('/qrcode');
         const data = await res.json();
         document.getElementById('qr-img').src = data.qr;
         document.getElementById('qr-url').textContent = data.url;
-      } catch {
-        document.getElementById('qr-label').textContent = 'Could not load QR code';
-      }
+      } catch {}
 
       try {
-        const evRes  = await fetch('/events/active');
+        const evRes  = await fetch(`/events/active?region=${wallRegion}`);
         const evData = await evRes.json();
         if (evData.active) {
           document.getElementById('event-name').textContent = evData.event.name;
           document.title = `${evData.event.name} — Message Wall`;
         }
       } catch {}
+
+      try {
+        const thRes   = await fetch(`/theme?region=${wallRegion}`);
+        const thData  = await thRes.json();
+        applyTheme(thData.theme || 'cosmic');
+      } catch {}
+
+      checkAuth();
     }
 
-    // ── Init ──────────────────────────────────────────────────
-    window.addEventListener('DOMContentLoaded', () => {
-      loadQR();
-      checkAuth();
-    });
+    window.addEventListener('DOMContentLoaded', loadInit);
   </script>
 </body>
 </html>

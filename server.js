@@ -12,6 +12,7 @@ const messageRoutes = require('./src/routes/messages');
 const photoRoutes   = require('./src/routes/photos');
 const reviewRoutes  = require('./src/routes/review');
 const userRoutes    = require('./src/routes/users');
+const themeRoutes   = require('./src/routes/theme');
 const eventRoutes   = require('./src/routes/events');
 const { getActiveEvent } = require('./src/services/eventService');
 const { getVisibleMessages } = require('./src/services/messageService');
@@ -54,6 +55,7 @@ app.use('/events', eventRoutes);
 app.use('/photos', photoRoutes);
 app.use('/review', reviewRoutes);
 app.use('/users',  userRoutes);
+app.use('/theme',  themeRoutes);
 
 // ── Pages ────────────────────────────────────────────────────
 app.get('/login', (req, res) =>
