@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QR Message Wall — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0d1a;
+      --bg2:       #13132a;
+      --bg3:       #1a1a35;
+      --border:    rgba(255,255,255,0.08);
+      --border2:   rgba(255,255,255,0.14);
+      --text:      #e8e8f0;
+      --text2:     rgba(255,255,255,0.5);
+      --text3:     rgba(255,255,255,0.28);
+      --purple:    #7c6fcd;
+      --teal:      #1db887;
+      --amber:     #f5a623;
+      --red:       #ff5555;
+      --blue:      #4d96ff;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 220px;
+      min-height: 100vh;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      padding: 0 20px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .sidebar-logo h1 {
+      font-size: 1rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #7c6fcd, #4d96ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .sidebar-logo p { font-size: 0.72rem; color: var(--text3); margin-top: 2px; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      font-size: 0.85rem;
+      color: var(--text2);
+      cursor: pointer;
+      border-radius: 0;
+      transition: background 0.15s, color 0.15s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    .nav-item:hover  { background: rgba(255,255,255,0.05); color: var(--text); }
+    .nav-item.active { background: rgba(124,111,205,0.15); color: var(--purple); border-right: 2px solid var(--purple); }
+    .nav-item .icon  { font-size: 1rem; width: 20px; text-align: center; }
+
+    .sidebar-bottom {
+      margin-top: auto;
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .user-badge {
+      font-size: 0.78rem;
+      color: var(--text2);
+      margin-bottom: 10px;
+    }
+
+    .user-badge strong { color: var(--text); display: block; }
+
+    .role-tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .role-admin     { background: rgba(124,111,205,0.2); color: var(--purple); }
+    .role-moderator { background: rgba(29,184,135,0.2);  color: var(--teal); }
+    .role-viewer    { background: rgba(255,255,255,0.1); color: var(--text2); }
+
+    .region-tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: rgba(77,150,255,0.15);
+      color: var(--blue);
+      margin-left: 4px;
+    }
+
+    .btn-logout {
+      width: 100%;
+      padding: 8px;
+      background: rgba(255,85,85,0.1);
+      border: 1px solid rgba(255,85,85,0.2);
+      border-radius: 8px;
+      color: var(--red);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-logout:hover { background: rgba(255,85,85,0.2); }
+
+    /* ── MAIN ── */
+    #main {
+      flex: 1;
+      padding: 28px 32px;
+      overflow-y: auto;
+    }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .page-header h2 { font-size: 1.3rem; font-weight: 700; }
+    .page-header p  { font-size: 0.82rem; color: var(--text2); margin-top: 2px; }
+
+    /* ── STAT CARDS ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .stat-card .label { font-size: 0.75rem; color: var(--text2); margin-bottom: 6px; }
+    .stat-card .value { font-size: 1.6rem; font-weight: 700; }
+    .stat-card .sub   { font-size: 0.72rem; color: var(--text3); margin-top: 2px; }
+    .stat-card.live .value { color: var(--teal); }
+    .stat-card.purple .value { color: var(--purple); }
+    .stat-card.amber .value  { color: var(--amber); }
+
+    /* ── LIVE BANNER ── */
+    #live-banner {
+      background: linear-gradient(135deg, rgba(29,184,135,0.15), rgba(77,150,255,0.1));
+      border: 1px solid rgba(29,184,135,0.3);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    #live-banner.show { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+
+    #live-banner .name { font-weight: 700; font-size: 1rem; }
+    #live-banner .meta { font-size: 0.78rem; color: var(--text2); }
+
+    .banner-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn:hover   { opacity: 0.85; }
+    .btn:active  { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary  { background: var(--purple); color: #fff; }
+    .btn-teal     { background: var(--teal);   color: #fff; }
+    .btn-red      { background: var(--red);    color: #fff; }
+    .btn-amber    { background: var(--amber);  color: #000; }
+    .btn-ghost    { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid var(--border2); }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .card-header h3 { font-size: 0.95rem; font-weight: 700; }
+
+    /* ── EVENTS TABLE ── */
+    .table-wrap { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { text-align: left; padding: 9px 12px; font-size: 0.73rem; color: var(--text2); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .status-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status-live   { background: rgba(29,184,135,0.15); color: var(--teal); }
+    .status-ended  { background: rgba(255,255,255,0.08); color: var(--text2); }
+    .status-draft  { background: rgba(245,166,35,0.15); color: var(--amber); }
+
+    .type-badge {
+      font-size: 0.72rem;
+      color: var(--text2);
+    }
+
+    .action-link {
+      background: none;
+      border: none;
+      color: var(--blue);
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+
+    .action-link:hover { background: rgba(77,150,255,0.1); }
+    .action-link.red   { color: var(--red); }
+    .action-link.red:hover { background: rgba(255,85,85,0.1); }
+
+    /* ── MESSAGES LIST ── */
+    #msg-list { max-height: 420px; overflow-y: auto; }
+
+    .msg-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .msg-row:last-child { border-bottom: none; }
+
+    .msg-check { margin-top: 2px; accent-color: var(--purple); cursor: pointer; }
+
+    .msg-content { flex: 1; font-size: 0.85rem; line-height: 1.4; }
+    .msg-time    { font-size: 0.72rem; color: var(--text3); white-space: nowrap; }
+
+    .msg-row.selected { background: rgba(124,111,205,0.08); border-radius: 6px; padding-left: 6px; }
+
+    /* ── WALL CONTROLS ── */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .control-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .control-card h4 { font-size: 0.82rem; font-weight: 700; margin-bottom: 4px; }
+    .control-card p  { font-size: 0.75rem; color: var(--text2); margin-bottom: 12px; }
+
+    .trim-input {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .trim-input input {
+      width: 70px;
+      padding: 6px 10px;
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    /* ── MODALS ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .modal h3    { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+    .modal p     { font-size: 0.82rem; color: var(--text2); margin-bottom: 20px; }
+    .modal-btns  { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    .form-field  { margin-bottom: 14px; }
+    .form-field label  { display: block; font-size: 0.78rem; color: var(--text2); margin-bottom: 5px; }
+    .form-field input,
+    .form-field select {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.88rem;
+      outline: none;
+    }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      z-index: 200;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { background: var(--teal);   color: #fff; }
+    #toast.error   { background: var(--red);    color: #fff; }
+    #toast.info    { background: var(--purple); color: #fff; }
+
+    /* ── EMPTY STATE ── */
+    .empty { text-align: center; padding: 40px; color: var(--text3); font-size: 0.85rem; }
+    .empty .icon { font-size: 2rem; margin-bottom: 8px; }
+
+    /* ── DELETE BAR ── */
+    #delete-bar {
+      position: sticky;
+      bottom: 0;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    #delete-bar.show { display: flex; }
+    #delete-bar span { font-size: 0.82rem; color: var(--text2); flex: 1; }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <h1>Message Wall</h1>
+    <p>Admin Dashboard</p>
+  </div>
+
+  <button class="nav-item active" onclick="showPage('overview')" id="nav-overview">
+    <span class="icon">📊</span> Overview
+  </button>
+  <button class="nav-item" onclick="showPage('events')" id="nav-events">
+    <span class="icon">🎉</span> Events
+  </button>
+  <button class="nav-item" onclick="showPage('messages')" id="nav-messages">
+    <span class="icon">💬</span> Messages
+  </button>
+  <button class="nav-item" onclick="showPage('controls')" id="nav-controls">
+    <span class="icon">🛠</span> Wall Controls
+  </button>
+  <button class="nav-item" onclick="showPage('history')" id="nav-history">
+    <span class="icon">📋</span> History
+  </button>
+  <button class="nav-item admin-only" onclick="showPage('users')" id="nav-users" style="display:none">
+    <span class="icon">👥</span> Users
+  </button>
+
+  <div class="sidebar-bottom">
+    <div class="user-badge">
+      <strong id="sb-username">—</strong>
+      <span class="role-tag" id="sb-role">—</span>
+      <span class="region-tag" id="sb-region">—</span>
+    </div>
+    <button class="btn-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main id="main">
+
+  <!-- ── OVERVIEW PAGE ── -->
+  <div class="page active" id="page-overview">
+    <div class="page-header">
+      <div><h2>Overview</h2><p>Live status of your message wall</p></div>
+      <button class="btn btn-primary admin-only" onclick="openCreateEvent()" id="btn-create-event">+ New Event</button>
+    </div>
+
+    <!-- Live event banner -->
+    <div id="live-banner">
+      <div class="live-dot"></div>
+      <div>
+        <div class="name" id="banner-name">—</div>
+        <div class="meta" id="banner-meta">—</div>
+      </div>
+      <div class="banner-actions">
+        <button class="btn btn-ghost" onclick="showPage('controls')">🛠 Controls</button>
+        <button class="btn btn-ghost" onclick="showPage('messages')">💬 Messages</button>
+        <button class="btn btn-red admin-only" onclick="confirmEndEvent()" id="btn-end-event">End Event</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card live">
+        <div class="label">Live messages</div>
+        <div class="value" id="stat-live">—</div>
+        <div class="sub">on wall now</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="label">Total events</div>
+        <div class="value" id="stat-events">—</div>
+        <div class="sub">all time</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="label">Total messages</div>
+        <div class="value" id="stat-messages">—</div>
+        <div class="sub">all events</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Active region</div>
+        <div class="value" style="font-size:1.1rem" id="stat-region">—</div>
+        <div class="sub">database location</div>
+      </div>
+    </div>
+
+    <!-- Recent messages preview -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Recent messages</h3>
+        <button class="btn btn-ghost" onclick="showPage('messages')" style="font-size:0.78rem">View all</button>
+      </div>
+      <div id="recent-msgs">
+        <div class="empty"><div class="icon">💬</div>No active event</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EVENTS PAGE ── -->
+  <div class="page" id="page-events">
+    <div class="page-header">
+      <div><h2>Events</h2><p>Manage your message wall events</p></div>
+      <button class="btn btn-primary admin-only" onclick="openCreateEvent()">+ New Event</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Event Name</th>
+              <th>Type</th>
+              <th>Created</th>
+              <th>Messages</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="events-table-body">
+            <tr><td colspan="6"><div class="empty"><div class="icon">🎉</div>No events yet</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MESSAGES PAGE ── -->
+  <div class="page" id="page-messages">
+    <div class="page-header">
+      <div><h2>Live Messages</h2><p>Messages currently visible on the wall</p></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="loadMessages()">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="card">
+      <div id="msg-list">
+        <div class="empty"><div class="icon">💬</div>No messages</div>
+      </div>
+      <div id="delete-bar">
+        <span id="delete-count">0 selected</span>
+        <button class="btn btn-ghost" onclick="clearSelection()">Cancel</button>
+        <button class="btn btn-red" onclick="deleteSelected()">🗑 Delete selected</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── WALL CONTROLS PAGE ── -->
+  <div class="page" id="page-controls">
+    <div class="page-header">
+      <div><h2>Wall Controls</h2><p>Manage what appears on the live wall</p></div>
+    </div>
+    <div class="controls-grid">
+
+      <div class="control-card">
+        <h4>🗑 Refresh Wall</h4>
+        <p>Hide all messages from the wall. History is preserved.</p>
+        <button class="btn btn-red" onclick="confirmRefresh()">Refresh Wall</button>
+      </div>
+
+      <div class="control-card">
+        <h4>✂️ Trim Wall</h4>
+        <p>Keep only the last N messages. Older ones are hidden.</p>
+        <div class="trim-input">
+          <input type="number" id="trim-input" value="10" min="1" max="100"/>
+          <button class="btn btn-amber" onclick="trimWall()">Trim</button>
+        </div>
+      </div>
+
+      <div class="control-card">
+        <h4>⚙️ Sliding Window</h4>
+        <p>Auto-hide oldest messages when wall exceeds limit.</p>
+        <div class="trim-input">
+          <input type="number" id="slide-input" value="20" min="1" max="100"/>
+          <button class="btn btn-primary" onclick="updateSlideLimit()">Update</button>
+        </div>
+      </div>
+
+      <div class="control-card">
+        <h4>💬 Delete Selected</h4>
+        <p>Go to Messages tab to select and delete specific messages.</p>
+        <button class="btn btn-ghost" onclick="showPage('messages')">Go to Messages →</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── HISTORY PAGE ── -->
+  <div class="page" id="page-history">
+    <div class="page-header">
+      <div><h2>History</h2><p>Full message history across all events</p></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Select event to review</h3>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+        <select id="history-event-select" style="padding:8px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:0.85rem;outline:none">
+          <option value="">— Select event —</option>
+        </select>
+        <label style="font-size:0.8rem;color:var(--text2);display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="show-deleted" onchange="loadHistory()"/> Show deleted
+        </label>
+        <button class="btn btn-ghost" onclick="loadHistory()">Load</button>
+        <button class="btn btn-teal" onclick="exportCSV()" id="btn-export-csv" style="display:none">⬇ Export CSV</button>
+      </div>
+      <div id="history-list">
+        <div class="empty"><div class="icon">📋</div>Select an event above</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── USERS PAGE (admin only) ── -->
+  <div class="page" id="page-users">
+    <div class="page-header">
+      <div><h2>Users</h2><p>Manage admin and moderator accounts</p></div>
+      <button class="btn btn-primary" onclick="openCreateUser()">+ Add User</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Username</th><th>Role</th><th>Last Login</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="users-table-body">
+            <tr><td colspan="4"><div class="empty"><div class="icon">👥</div>Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── CREATE EVENT MODAL ── -->
+<div class="modal-overlay" id="modal-create-event">
+  <div class="modal">
+    <h3>Create New Event</h3>
+    <p>A unique QR code will be generated for this event.</p>
+    <div class="form-field">
+      <label>Event Name *</label>
+      <input type="text" id="new-event-name" placeholder="e.g. Sarah's Wedding"/>
+    </div>
+    <div class="form-field">
+      <label>Event Type</label>
+      <select id="new-event-type">
+        <option value="birthday">🎂 Birthday</option>
+        <option value="wedding">💍 Wedding</option>
+        <option value="survey">📋 Survey</option>
+        <option value="other" selected>🎉 Other</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('modal-create-event')">Cancel</button>
+      <button class="btn btn-primary" onclick="createEvent()">Create Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CONFIRM REFRESH MODAL ── -->
+<div class="modal-overlay" id="modal-refresh">
+  <div class="modal">
+    <h3>Refresh Wall?</h3>
+    <p>This will hide all current messages from the wall. They will still be available in History. This cannot be undone.</p>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('modal-refresh')">Cancel</button>
+      <button class="btn btn-red" onclick="doRefresh()">Yes, Refresh</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CONFIRM END EVENT MODAL ── -->
+<div class="modal-overlay" id="modal-end-event">
+  <div class="modal">
+    <h3>End Event?</h3>
+    <p>This will archive the event and clear the wall. All messages are preserved in History.</p>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('modal-end-event')">Cancel</button>
+      <button class="btn btn-red" onclick="doEndEvent()">End Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+  // ── State ─────────────────────────────────────────────────
+  let user        = null;
+  let activeEvent = null;
+  let allEvents   = [];
+  let selectedIds = new Set();
+
+  // ── Init ──────────────────────────────────────────────────
+  async function init() {
+    try {
+      const res  = await fetch('/auth/me', { credentials: 'include' });
+      if (!res.ok) { window.location.href = '/login'; return; }
+      const data = await res.json();
+      user = data.user;
+
+      // Update sidebar
+      document.getElementById('sb-username').textContent = user.username;
+      const roleEl = document.getElementById('sb-role');
+      roleEl.textContent = user.role;
+      roleEl.className   = `role-tag role-${user.role}`;
+      document.getElementById('sb-region').textContent = user.region === 'asia' ? '🌏 Asia' : '🇺🇸 US';
+
+      // Show admin-only elements
+      if (user.role === 'admin') {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+        document.getElementById('nav-users').style.display = 'flex';
+      }
+
+      await loadOverview();
+    } catch {
+      window.location.href = '/login';
+    }
+  }
+
+  // ── Navigation ────────────────────────────────────────────
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`page-${name}`).classList.add('active');
+    document.getElementById(`nav-${name}`).classList.add('active');
+
+    // Lazy load page data
+    if (name === 'messages') loadMessages();
+    if (name === 'events')   loadEvents();
+    if (name === 'history')  loadHistoryEvents();
+    if (name === 'users' && user?.role === 'admin') loadUsers();
+  }
+
+  // ── Overview ──────────────────────────────────────────────
+  async function loadOverview() {
+    try {
+      const region = user.region;
+
+      // Active event
+      const evRes = await fetch(`/events/active?region=${region}`, { credentials: 'include' });
+      const evData = await evRes.json();
+
+      if (evData.active) {
+        activeEvent = evData.event;
+        const banner = document.getElementById('live-banner');
+        banner.classList.add('show');
+        document.getElementById('banner-name').textContent = evData.event.name;
+        document.getElementById('banner-meta').textContent =
+          `Type: ${evData.event.type} · Region: ${region.toUpperCase()}`;
+      }
+
+      // Messages
+      const msgRes  = await fetch(`/messages?region=${region}`);
+      const messages = await msgRes.json();
+      document.getElementById('stat-live').textContent = messages.length;
+      document.getElementById('stat-region').textContent = region === 'asia' ? '🌏 Asia' : '🇺🇸 US';
+
+      // Recent messages preview
+      const recentEl = document.getElementById('recent-msgs');
+      if (messages.length === 0) {
+        recentEl.innerHTML = '<div class="empty"><div class="icon">💬</div>No messages yet</div>';
+      } else {
+        recentEl.innerHTML = messages.slice(0, 5).map(m => `
+          <div class="msg-row">
+            <div class="msg-content">${escHtml(m.text)}</div>
+            <div class="msg-time">${timeAgo(m.timestamp)}</div>
+          </div>`).join('');
+      }
+
+      // Events count
+      const allEvRes  = await fetch('/events', { credentials: 'include' });
+      if (allEvRes.ok) {
+        allEvents = await allEvRes.json();
+        document.getElementById('stat-events').textContent   = allEvents.length;
+        const totalMsgs = allEvents.reduce((s, e) => s + (e._count?.messages || 0), 0);
+        document.getElementById('stat-messages').textContent = totalMsgs;
+      }
+    } catch (err) {
+      console.error('Overview error:', err);
+    }
+  }
+
+  // ── Events ────────────────────────────────────────────────
+  async function loadEvents() {
+    try {
+      const res  = await fetch('/events', { credentials: 'include' });
+      allEvents  = await res.json();
+      const tbody = document.getElementById('events-table-body');
+
+      if (!allEvents.length) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="icon">🎉</div>No events yet</div></td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = allEvents.map(e => `
+        <tr>
+          <td><strong>${escHtml(e.name)}</strong></td>
+          <td><span class="type-badge">${typeEmoji(e.type)} ${e.type}</span></td>
+          <td>${formatDate(e.createdAt)}</td>
+          <td>${e._count?.messages ?? 0}</td>
+          <td><span class="status-badge status-${e.status}">${e.status}</span></td>
+          <td>
+            <button class="action-link" onclick="reviewEvent('${e.id}')">Review</button>
+            ${e.status === 'live' && user?.role === 'admin'
+              ? `<button class="action-link red" onclick="confirmEndEventId('${e.id}')">End</button>`
+              : ''}
+          </td>
+        </tr>`).join('');
+    } catch (err) {
+      console.error('Load events error:', err);
+    }
+  }
+
+  function openCreateEvent() {
+    document.getElementById('new-event-name').value = '';
+    document.getElementById('modal-create-event').classList.add('show');
+    setTimeout(() => document.getElementById('new-event-name').focus(), 100);
+  }
+
+  async function createEvent() {
+    const name = document.getElementById('new-event-name').value.trim();
+    const type = document.getElementById('new-event-type').value;
+    if (!name) { toast('Event name is required', 'error'); return; }
+
+    try {
+      const res  = await fetch('/events', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, type }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Failed to create event', 'error'); return; }
+
+      closeModal('modal-create-event');
+      toast(`Event "${name}" created!`, 'success');
+      activeEvent = data.event;
+      await loadOverview();
+      await loadEvents();
+    } catch {
+      toast('Network error', 'error');
+    }
+  }
+
+  // ── Messages ──────────────────────────────────────────────
+  async function loadMessages() {
+    try {
+      const region = user.region;
+      const res    = await fetch(`/messages?region=${region}`);
+      const msgs   = await res.json();
+      const list   = document.getElementById('msg-list');
+      selectedIds.clear();
+      updateDeleteBar();
+
+      if (!msgs.length) {
+        list.innerHTML = '<div class="empty"><div class="icon">💬</div>No messages on wall</div>';
+        return;
+      }
+
+      list.innerHTML = msgs.map(m => `
+        <div class="msg-row" id="msgrow-${m.id}">
+          <input type="checkbox" class="msg-check" data-id="${m.id}" onchange="toggleSelect('${m.id}', this.checked)"/>
+          <div class="msg-content">${escHtml(m.text)}</div>
+          <div class="msg-time">${timeAgo(m.timestamp)}</div>
+        </div>`).join('');
+    } catch (err) {
+      console.error('Load messages error:', err);
+    }
+  }
+
+  function toggleSelect(id, checked) {
+    if (checked) selectedIds.add(id);
+    else         selectedIds.delete(id);
+    const row = document.getElementById(`msgrow-${id}`);
+    if (row) row.classList.toggle('selected', checked);
+    updateDeleteBar();
+  }
+
+  function updateDeleteBar() {
+    const bar = document.getElementById('delete-bar');
+    const cnt = document.getElementById('delete-count');
+    if (selectedIds.size > 0) {
+      bar.classList.add('show');
+      cnt.textContent = `${selectedIds.size} selected`;
+    } else {
+      bar.classList.remove('show');
+    }
+  }
+
+  function clearSelection() {
+    selectedIds.clear();
+    document.querySelectorAll('.msg-check').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.msg-row').forEach(r => r.classList.remove('selected'));
+    updateDeleteBar();
+  }
+
+  async function deleteSelected() {
+    if (!selectedIds.size) return;
+    const ids = [...selectedIds];
+    try {
+      const res = await fetch('/messages', {
+        method: 'DELETE', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) { toast('Failed to delete', 'error'); return; }
+      toast(`${ids.length} message(s) deleted`, 'success');
+      await loadMessages();
+    } catch { toast('Network error', 'error'); }
+  }
+
+  // ── Wall Controls ─────────────────────────────────────────
+  function confirmRefresh() {
+    document.getElementById('modal-refresh').classList.add('show');
+  }
+
+  async function doRefresh() {
+    try {
+      const res = await fetch('/clear-messages', { method: 'POST', credentials: 'include' });
+      if (!res.ok) { toast('Failed to refresh', 'error'); return; }
+      closeModal('modal-refresh');
+      toast('Wall refreshed', 'success');
+      await loadOverview();
+    } catch { toast('Network error', 'error'); }
+  }
+
+  async function trimWall() {
+    const keep = parseInt(document.getElementById('trim-input').value) || 10;
+    try {
+      const res  = await fetch('/trim-messages', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keep }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast('Failed to trim', 'error'); return; }
+      toast(`Trimmed — kept last ${keep} messages (${data.hidden} hidden)`, 'success');
+      await loadOverview();
+    } catch { toast('Network error', 'error'); }
+  }
+
+  async function updateSlideLimit() {
+    if (!activeEvent) { toast('No active event', 'error'); return; }
+    const limit = parseInt(document.getElementById('slide-input').value) || 20;
+    try {
+      const res = await fetch(`/events/${activeEvent.id}/slide-limit`, {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallLimit: limit }),
+      });
+      if (!res.ok) { toast('Failed to update limit', 'error'); return; }
+      toast(`Sliding window set to ${limit}`, 'success');
+    } catch { toast('Network error', 'error'); }
+  }
+
+  // ── End Event ─────────────────────────────────────────────
+  let endEventId = null;
+
+  function confirmEndEvent() {
+    endEventId = activeEvent?.id;
+    document.getElementById('modal-end-event').classList.add('show');
+  }
+
+  function confirmEndEventId(id) {
+    endEventId = id;
+    document.getElementById('modal-end-event').classList.add('show');
+  }
+
+  async function doEndEvent() {
+    if (!endEventId) return;
+    try {
+      const res = await fetch(`/events/${endEventId}/end`, {
+        method: 'POST', credentials: 'include',
+      });
+      if (!res.ok) { toast('Failed to end event', 'error'); return; }
+      closeModal('modal-end-event');
+      toast('Event ended and archived', 'success');
+      activeEvent = null;
+      await loadOverview();
+      await loadEvents();
+    } catch { toast('Network error', 'error'); }
+  }
+
+  // ── History ───────────────────────────────────────────────
+  async function loadHistoryEvents() {
+    try {
+      const res    = await fetch('/events', { credentials: 'include' });
+      const events = await res.json();
+      const sel    = document.getElementById('history-event-select');
+      sel.innerHTML = '<option value="">— Select event —</option>' +
+        events.map(e => `<option value="${e.id}">${e.name} (${e.status})</option>`).join('');
+    } catch {}
+  }
+
+  async function loadHistory() {
+    const eventId       = document.getElementById('history-event-select').value;
+    const includeDeleted = document.getElementById('show-deleted').checked;
+    if (!eventId) return;
+
+    try {
+      const res  = await fetch(`/history?eventId=${eventId}&includeDeleted=${includeDeleted}`, { credentials: 'include' });
+      const msgs = await res.json();
+      const list = document.getElementById('history-list');
+      document.getElementById('btn-export-csv').style.display = msgs.length ? '' : 'none';
+
+      if (!msgs.length) {
+        list.innerHTML = '<div class="empty"><div class="icon">📋</div>No messages found</div>';
+        return;
+      }
+
+      list.innerHTML = `<div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">${msgs.length} messages</div>` +
+        msgs.map(m => `
+          <div class="msg-row" style="${!m.isVisible ? 'opacity:0.4' : ''}">
+            <div class="msg-content">
+              ${!m.isVisible ? '<span style="font-size:0.7rem;color:var(--red);margin-right:6px">[hidden]</span>' : ''}
+              ${escHtml(m.content)}
+            </div>
+            <div style="text-align:right">
+              <div class="msg-time">${formatDate(m.createdAt)}</div>
+              ${m.deletedBy ? `<div class="msg-time" style="color:var(--red)">del by ${m.deletedBy.username}</div>` : ''}
+            </div>
+          </div>`).join('');
+    } catch { toast('Failed to load history', 'error'); }
+  }
+
+  function reviewEvent(id) {
+    const sel = document.getElementById('history-event-select');
+    if (sel) sel.value = id;
+    showPage('history');
+    loadHistory();
+  }
+
+  function exportCSV() {
+    const eventId = document.getElementById('history-event-select').value;
+    if (!eventId) return;
+    window.open(`/history/export?eventId=${eventId}`, '_blank');
+  }
+
+  // ── Users (admin only) ────────────────────────────────────
+  async function loadUsers() {
+    // Placeholder — Phase 4 extension
+    document.getElementById('users-table-body').innerHTML =
+      '<tr><td colspan="4"><div class="empty"><div class="icon">👥</div>User management coming soon</div></td></tr>';
+  }
+
+  function openCreateUser() {
+    toast('User management coming in next update', 'info');
+  }
+
+  // ── Auth ──────────────────────────────────────────────────
+  async function logout() {
+    await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+    window.location.href = '/login';
+  }
+
+  // ── Modals ────────────────────────────────────────────────
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  // Close on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.classList.remove('show');
+    });
+  });
+
+  // ── Toast ─────────────────────────────────────────────────
+  let toastTimer;
+  function toast(msg, type = 'info') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function timeAgo(ts) {
+    const diff = Date.now() - ts;
+    if (diff < 60000)   return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+    return new Date(ts).toLocaleDateString();
+  }
+
+  function formatDate(dt) {
+    return new Date(dt).toLocaleString();
+  }
+
+  function typeEmoji(type) {
+    return { birthday:'🎂', wedding:'💍', survey:'📋', other:'🎉' }[type] || '🎉';
+  }
+
+  // ── Start ─────────────────────────────────────────────────
+  init();
+</script>
+</body>
+</html>

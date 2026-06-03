@@ -56,9 +56,36 @@ app.get('/login', (req, res) =>
 app.get('/submit', (req, res) =>
   res.sendFile(path.join(__dirname, 'public', 'submit.html')));
 
-// Admin dashboard placeholder — full UI built in Phase 4
+// Admin dashboard — full UI
 app.get('/admin/dashboard', authenticate, requireRole('moderator', 'admin'), (req, res) =>
-  res.json({ message: `Welcome ${req.user.username} (${req.user.role}) — dashboard coming in Phase 4` }));
+  res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html')));
+
+// History CSV export
+app.get('/history/export', authenticate, requireRole('moderator', 'admin'), async (req, res) => {
+  try {
+    const { getHistory } = require('./src/services/messageService');
+    const eventId        = req.query.eventId;
+    const region         = req.user.region;
+    if (!eventId) return res.status(400).json({ error: 'eventId required' });
+
+    const messages = await getHistory({ eventId, region, includeDeleted: true });
+    const rows     = [
+      ['id', 'content', 'createdAt', 'isVisible', 'deletedBy', 'deletedAt'],
+      ...messages.map(m => [
+        m.id, `"${m.content.replace(/"/g, '""')}"`,
+        m.createdAt, m.isVisible,
+        m.deletedBy?.username || '', m.deletedAt || '',
+      ]),
+    ];
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="event-${eventId}.csv"`);
+    res.send(rows.map(r => r.join(',')).join('\n'));
+  } catch (err) {
+    console.error('Export error:', err);
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
 
 // ── QR code (uses active event QR if available) ──────────────
 app.get('/qrcode', async (req, res) => {

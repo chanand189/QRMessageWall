@@ -61,6 +61,22 @@ router.get('/active', async (req, res) => {
   }
 });
 
+// ── PATCH /events/:id/slide-limit (moderator+) ───────────────
+router.patch('/:id/slide-limit', authenticate, requireRole('moderator', 'admin'), async (req, res) => {
+  try {
+    const db       = require('../lib/prisma').getDb(req.user.region);
+    const wallLimit = parseInt(req.body?.wallLimit) || 20;
+    const event    = await db.event.update({
+      where: { id: req.params.id },
+      data:  { wallLimit },
+    });
+    res.json({ ok: true, wallLimit: event.wallLimit });
+  } catch (err) {
+    console.error('Slide limit error:', err);
+    res.status(500).json({ error: 'Failed to update slide limit' });
+  }
+});
+
 // ── POST /events/:id/end (admin only) ─────────────────────────
 router.post('/:id/end', authenticate, requireRole('admin'), async (req, res) => {
   try {
