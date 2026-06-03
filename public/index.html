@@ -44,36 +44,19 @@
       letter-spacing: 0.03em;
     }
 
+    #event-name {
+      color: rgba(255,255,255,0.5);
+      font-size: clamp(0.7rem, 1.1vw, 0.9rem);
+      text-align: center;
+      font-style: italic;
+    }
+
     #qr-url {
-      color: rgba(255,255,255,0.35);
-      font-size: clamp(0.6rem, 1vw, 0.78rem);
+      color: rgba(255,255,255,0.25);
+      font-size: clamp(0.55rem, 0.9vw, 0.72rem);
       text-align: center;
       word-break: break-all;
       max-width: 90%;
-    }
-
-    #refresh-btn {
-      margin-top: 1rem;
-      padding: 0.55rem 1.4rem;
-      border: none;
-      border-radius: 10px;
-      background: rgba(255, 80, 80, 0.18);
-      color: #ff6b6b;
-      font-size: clamp(0.75rem, 1.2vw, 0.95rem);
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: 0.05em;
-      border: 1px solid rgba(255, 80, 80, 0.35);
-      transition: background 0.2s, box-shadow 0.2s;
-    }
-
-    #refresh-btn:hover {
-      background: rgba(255, 80, 80, 0.32);
-      box-shadow: 0 0 16px rgba(255, 80, 80, 0.4);
-    }
-
-    #refresh-btn:active {
-      transform: scale(0.96);
     }
 
     /* ── RIGHT PANEL ── */
@@ -112,6 +95,23 @@
       transform: translate(-50%, -50%);
       text-shadow: 0 0 14px currentColor;
       opacity: 0.88;
+      transition: opacity 0.4s ease;
+    }
+
+    .floating-msg.mod-mode {
+      pointer-events: all;
+      cursor: pointer;
+      opacity: 0.7;
+    }
+
+    .floating-msg.mod-mode:hover { opacity: 1; }
+
+    .floating-msg.selected-msg {
+      outline: 2px solid #ff5555;
+      border-radius: 6px;
+      opacity: 1;
+      background: rgba(255,85,85,0.15);
+      padding: 2px 6px;
     }
 
     @keyframes float-a {
@@ -121,14 +121,12 @@
       75%  { transform: translate(-50%,-50%) translate(18px, 5px) rotate(2deg); }
       100% { transform: translate(-50%,-50%) translate(0px, 0px) rotate(-2deg); }
     }
-
     @keyframes float-b {
       0%   { transform: translate(-50%,-50%) translate(0px, 0px) rotate(1deg); }
       33%  { transform: translate(-50%,-50%) translate(-22px, 14px) rotate(-2deg); }
       66%  { transform: translate(-50%,-50%) translate(10px, -10px) rotate(1deg); }
       100% { transform: translate(-50%,-50%) translate(0px, 0px) rotate(1deg); }
     }
-
     @keyframes float-c {
       0%   { transform: translate(-50%,-50%) translate(0px, 0px) scale(1) rotate(0deg); }
       20%  { transform: translate(-50%,-50%) translate(8px, -28px) scale(1.02) rotate(-1deg); }
@@ -137,7 +135,6 @@
       80%  { transform: translate(-50%,-50%) translate(11px, 10px) scale(1) rotate(1deg); }
       100% { transform: translate(-50%,-50%) translate(0px, 0px) scale(1) rotate(0deg); }
     }
-
     @keyframes float-d {
       0%,100% { transform: translate(-50%,-50%) translate(0px, 0px) rotate(-1deg); }
       50%     { transform: translate(-50%,-50%) translate(-16px, -12px) rotate(2deg); }
@@ -146,8 +143,7 @@
     /* ── SPOTLIGHT ── */
     #spotlight {
       position: absolute;
-      left: 50%;
-      top: 50%;
+      left: 50%; top: 50%;
       transform: translate(-50%, -50%);
       z-index: 20;
       padding: 0.9rem 1.8rem;
@@ -159,14 +155,12 @@
       word-break: break-word;
       background: rgba(13, 13, 26, 0.75);
       backdrop-filter: blur(6px);
-      /* rainbow gradient border via box-shadow layering */
       box-shadow:
         0 0 0 3px rgba(255,255,255,0.15),
         0 0 25px rgba(255,255,255,0.4),
         0 0 55px rgba(120,100,255,0.55),
         0 0 100px rgba(80,80,255,0.3);
     }
-
     #spotlight::before {
       content: '';
       position: absolute;
@@ -177,50 +171,121 @@
       z-index: -1;
       animation: border-spin 1.6s linear infinite;
     }
-
     @keyframes border-spin {
       0%   { background-position: 0% 50%; }
       50%  { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-
     #spotlight.hidden { display: none; }
-
     @keyframes spotlight-appear {
       0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.65); }
       12%  { opacity: 1; transform: translate(-50%,-50%) scale(1.06); }
       20%  { transform: translate(-50%,-50%) scale(1); }
-      40%  {
-        box-shadow:
-          0 0 0 3px rgba(255,255,255,0.3),
-          0 0 35px rgba(255,255,255,0.7),
-          0 0 70px rgba(120,100,255,0.9),
-          0 0 120px rgba(80,80,255,0.6);
-      }
-      65%  {
-        box-shadow:
-          0 0 0 3px rgba(255,255,255,0.15),
-          0 0 20px rgba(255,255,255,0.3),
-          0 0 45px rgba(120,100,255,0.45),
-          0 0 90px rgba(80,80,255,0.25);
-      }
+      40%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.3), 0 0 35px rgba(255,255,255,0.7), 0 0 70px rgba(120,100,255,0.9), 0 0 120px rgba(80,80,255,0.6); }
+      65%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.15), 0 0 20px rgba(255,255,255,0.3), 0 0 45px rgba(120,100,255,0.45), 0 0 90px rgba(80,80,255,0.25); }
       85%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
       100% { opacity: 0; transform: translate(-50%,-50%) scale(0.88); }
     }
+    #spotlight.show { animation: spotlight-appear 3.4s ease-in-out forwards; }
 
-    #spotlight.show {
-      animation: spotlight-appear 3.4s ease-in-out forwards;
+    /* ── MOD TOOLBAR ── */
+    #mod-toolbar {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(13,13,26,0.92);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 50px;
+      padding: 10px 20px;
+      gap: 10px;
+      align-items: center;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 32px rgba(0,0,0,0.5);
+      z-index: 100;
+      flex-wrap: wrap;
+      justify-content: center;
     }
+
+    #mod-toolbar.visible { display: flex; }
+
+    .mod-label {
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+
+    .mod-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: none;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .mod-btn:hover  { opacity: 0.85; }
+    .mod-btn:active { transform: scale(0.96); }
+
+    .mod-btn-red    { background: rgba(255,85,85,0.2);  color: #ff5555; border: 1px solid rgba(255,85,85,0.3); }
+    .mod-btn-amber  { background: rgba(245,166,35,0.2); color: #f5a623; border: 1px solid rgba(245,166,35,0.3); }
+    .mod-btn-purple { background: rgba(124,111,205,0.2);color: #a89ce8; border: 1px solid rgba(124,111,205,0.3); }
+    .mod-btn-ghost  { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.12); }
+
+    .mod-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 4px; }
+
+    /* ── DELETE BAR (mod select mode) ── */
+    #mod-delete-bar {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,85,85,0.15);
+      border: 1px solid rgba(255,85,85,0.3);
+      border-radius: 50px;
+      padding: 10px 20px;
+      gap: 12px;
+      align-items: center;
+      backdrop-filter: blur(12px);
+      z-index: 101;
+    }
+
+    #mod-delete-bar.visible { display: flex; }
+    #del-count { font-size: 0.8rem; color: #ff8080; font-weight: 600; }
+
+    /* ── MOD TOGGLE HINT ── */
+    #mod-hint {
+      display: none;
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      background: rgba(124,111,205,0.15);
+      border: 1px solid rgba(124,111,205,0.25);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.4);
+      cursor: pointer;
+      z-index: 99;
+    }
+
+    #mod-hint.visible { display: block; }
+    #mod-hint:hover { color: rgba(255,255,255,0.7); }
   </style>
 </head>
 <body>
 
-  <!-- LEFT: QR Code -->
+  <!-- LEFT: QR + Event info -->
   <div id="left-panel">
     <img id="qr-img" src="" alt="QR Code">
     <p id="qr-label">Scan to add your message</p>
+    <p id="event-name"></p>
     <p id="qr-url"></p>
-    <button id="refresh-btn" title="Erase all messages from the wall">🗑 Refresh Wall</button>
   </div>
 
   <!-- RIGHT: Message Circle -->
@@ -230,27 +295,136 @@
     </div>
   </div>
 
+  <!-- MOD HINT (top-right, only for logged-in mods) -->
+  <div id="mod-hint" onclick="toggleModMode()" title="Toggle moderator controls">🛡 Mod Controls</div>
+
+  <!-- MOD TOOLBAR (bottom, floating) -->
+  <div id="mod-toolbar">
+    <span class="mod-label">Wall</span>
+    <button class="mod-btn mod-btn-red"    onclick="modRefresh()">🗑 Refresh</button>
+    <div class="mod-divider"></div>
+    <span class="mod-label">Trim</span>
+    <button class="mod-btn mod-btn-amber"  onclick="modTrim(5)">5</button>
+    <button class="mod-btn mod-btn-amber"  onclick="modTrim(10)">10</button>
+    <button class="mod-btn mod-btn-amber"  onclick="modTrim(15)">15</button>
+    <div class="mod-divider"></div>
+    <button class="mod-btn mod-btn-purple" onclick="enterSelectMode()">☑ Select &amp; Delete</button>
+    <div class="mod-divider"></div>
+    <button class="mod-btn mod-btn-ghost"  onclick="toggleModMode()">✕ Hide</button>
+  </div>
+
+  <!-- DELETE BAR (shown in select mode) -->
+  <div id="mod-delete-bar">
+    <span id="del-count">0 selected</span>
+    <button class="mod-btn mod-btn-ghost"  onclick="exitSelectMode()">Cancel</button>
+    <button class="mod-btn mod-btn-red"    onclick="deleteSelectedMsgs()">🗑 Delete</button>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const COLORS = [
-      '#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff',
-      '#c77dff', '#ff9f43', '#48dbfb', '#ff6fd8',
-      '#a8ff78', '#f7971e', '#f953c6', '#43e97b'
-    ];
+    const COLORS     = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f43','#48dbfb','#ff6fd8','#a8ff78','#f7971e','#f953c6','#43e97b'];
+    const FLOAT_ANIMS = ['float-a','float-b','float-c','float-d'];
 
-    const FLOAT_ANIMS = ['float-a', 'float-b', 'float-c', 'float-d'];
+    let isMod        = false;
+    let modModeOn    = false;
+    let selectMode   = false;
+    let selectedIds  = new Set();
 
+    // ── Check if logged in as mod/admin ──────────────────────
+    async function checkAuth() {
+      try {
+        const res  = await fetch('/auth/me', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const role = data.user?.role;
+        if (role === 'admin' || role === 'moderator') {
+          isMod = true;
+          document.getElementById('mod-hint').classList.add('visible');
+        }
+      } catch {}
+    }
+
+    // ── Toggle mod toolbar ────────────────────────────────────
+    function toggleModMode() {
+      modModeOn = !modModeOn;
+      document.getElementById('mod-toolbar').classList.toggle('visible', modModeOn);
+      if (!modModeOn) exitSelectMode();
+    }
+
+    // ── Mod actions ───────────────────────────────────────────
+    async function modRefresh() {
+      if (!confirm('Refresh wall — hide all messages?')) return;
+      await fetch('/clear-messages', { method: 'POST', credentials: 'include' });
+    }
+
+    async function modTrim(n) {
+      await fetch('/trim-messages', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keep: n }),
+      });
+    }
+
+    // ── Select mode ───────────────────────────────────────────
+    function enterSelectMode() {
+      selectMode = true;
+      document.getElementById('mod-toolbar').classList.remove('visible');
+      document.getElementById('mod-delete-bar').classList.add('visible');
+      document.querySelectorAll('.floating-msg').forEach(el => {
+        el.classList.add('mod-mode');
+        el.addEventListener('click', toggleMsgSelect);
+      });
+    }
+
+    function exitSelectMode() {
+      selectMode   = false;
+      selectedIds.clear();
+      document.getElementById('mod-delete-bar').classList.remove('visible');
+      if (modModeOn) document.getElementById('mod-toolbar').classList.add('visible');
+      document.querySelectorAll('.floating-msg').forEach(el => {
+        el.classList.remove('mod-mode', 'selected-msg');
+        el.removeEventListener('click', toggleMsgSelect);
+      });
+      updateDelCount();
+    }
+
+    function toggleMsgSelect(e) {
+      const id = e.currentTarget.dataset.id;
+      if (!id) return;
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+        e.currentTarget.classList.remove('selected-msg');
+      } else {
+        selectedIds.add(id);
+        e.currentTarget.classList.add('selected-msg');
+      }
+      updateDelCount();
+    }
+
+    function updateDelCount() {
+      document.getElementById('del-count').textContent = `${selectedIds.size} selected`;
+    }
+
+    async function deleteSelectedMsgs() {
+      if (!selectedIds.size) return;
+      const ids = [...selectedIds];
+      await fetch('/messages', {
+        method: 'DELETE', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      exitSelectMode();
+    }
+
+    // ── Floating messages ─────────────────────────────────────
     function randomPositionInCircle() {
       const container = document.getElementById('circle-container');
-      const R = container.offsetWidth / 2;
+      const R   = container.offsetWidth / 2;
       const pad = R * 0.18;
       const safeR = R - pad;
       const angle = Math.random() * 2 * Math.PI;
-      const r = safeR * Math.sqrt(Math.random());
-      return {
-        left: R + r * Math.cos(angle),
-        top:  R + r * Math.sin(angle)
-      };
+      const r     = safeR * Math.sqrt(Math.random());
+      return { left: R + r * Math.cos(angle), top: R + r * Math.sin(angle) };
     }
 
     function pickColor() {
@@ -261,7 +435,7 @@
       const container = document.getElementById('circle-container');
       const el = document.createElement('div');
       el.classList.add('floating-msg');
-      el.dataset.id  = msg.id;   // ← needed for hide/remove by id
+      el.dataset.id  = msg.id;
       el.textContent = msg.text;
       el.style.color = pickColor();
 
@@ -274,6 +448,12 @@
       const delay    = Math.random() * 8;
       el.style.animation = `${anim} ${duration.toFixed(1)}s ${delay.toFixed(1)}s ease-in-out infinite`;
 
+      // If in select mode, make clickable immediately
+      if (selectMode) {
+        el.classList.add('mod-mode');
+        el.addEventListener('click', toggleMsgSelect);
+      }
+
       container.appendChild(el);
 
       // Keep DOM trimmed
@@ -281,26 +461,23 @@
       if (all.length > 50) all[0].remove();
     }
 
+    // ── Spotlight ─────────────────────────────────────────────
     let spotlightQueue = [];
-    let spotlightBusy = false;
+    let spotlightBusy  = false;
 
     function processQueue() {
       if (spotlightBusy || spotlightQueue.length === 0) return;
       spotlightBusy = true;
-      const msg = spotlightQueue.shift();
-      showSpotlight(msg);
+      showSpotlight(spotlightQueue.shift());
     }
 
     function showSpotlight(msg) {
       const el = document.getElementById('spotlight');
       el.textContent = msg.text;
       el.style.color = pickColor();
-
-      // Restart animation
       el.classList.remove('show', 'hidden');
       void el.offsetHeight;
       el.classList.add('show');
-
       setTimeout(() => {
         el.classList.add('hidden');
         el.classList.remove('show');
@@ -310,75 +487,69 @@
       }, 3400);
     }
 
-    // ── Socket.io ──
-    const socket = io();
-
-    socket.on('history', (msgs) => {
-      msgs.forEach(addFloatingMessage);
-    });
-
-    socket.on('new-message', (msg) => {
-      spotlightQueue.push(msg);
-      processQueue();
-    });
-
-    // ── Clear Wall ──
+    // ── Clear wall ────────────────────────────────────────────
     function clearWall() {
-      const container = document.getElementById('circle-container');
-      container.querySelectorAll('.floating-msg').forEach(el => el.remove());
+      document.getElementById('circle-container')
+        .querySelectorAll('.floating-msg').forEach(el => el.remove());
       spotlightQueue = [];
-      spotlightBusy = false;
+      spotlightBusy  = false;
       const spotlight = document.getElementById('spotlight');
       spotlight.classList.add('hidden');
       spotlight.classList.remove('show');
     }
 
-    document.getElementById('refresh-btn').addEventListener('click', async () => {
-      if (!confirm('Erase all messages from the wall?')) return;
-      try {
-        await fetch('/clear-messages', { method: 'POST' });
-      } catch (e) {
-        console.error('Clear failed', e);
-      }
+    // ── Socket.io ─────────────────────────────────────────────
+    const socket = io();
+
+    socket.on('history', msgs => msgs.forEach(addFloatingMessage));
+
+    socket.on('new-message', msg => {
+      spotlightQueue.push(msg);
+      processQueue();
     });
 
-    socket.on('clear-wall', () => {
-      clearWall();
-    });
+    socket.on('clear-wall',      ()   => clearWall());
 
-    // Hide specific messages (trim / auto-slide)
-    socket.on('hide-messages', (ids) => {
+    socket.on('hide-messages',   ids  => {
       ids.forEach(id => {
-        // Remove from floating wall
-        const el = document.querySelector(`[data-id="${id}"]`);
-        if (el) el.remove();
-        // Remove from spotlight queue
+        document.querySelector(`[data-id="${id}"]`)?.remove();
         spotlightQueue = spotlightQueue.filter(m => m.id !== id);
       });
     });
 
-    // Remove selected messages (moderator delete)
-    socket.on('remove-messages', (ids) => {
+    socket.on('remove-messages', ids  => {
       ids.forEach(id => {
-        const el = document.querySelector(`[data-id="${id}"]`);
-        if (el) el.remove();
+        document.querySelector(`[data-id="${id}"]`)?.remove();
         spotlightQueue = spotlightQueue.filter(m => m.id !== id);
       });
     });
 
-    // ── QR Code ──
+    // ── QR + event name ───────────────────────────────────────
     async function loadQR() {
       try {
         const res  = await fetch('/qrcode');
         const data = await res.json();
-        document.getElementById('qr-img').src  = data.qr;
+        document.getElementById('qr-img').src = data.qr;
         document.getElementById('qr-url').textContent = data.url;
-      } catch (e) {
+      } catch {
         document.getElementById('qr-label').textContent = 'Could not load QR code';
       }
+
+      try {
+        const evRes  = await fetch('/events/active');
+        const evData = await evRes.json();
+        if (evData.active) {
+          document.getElementById('event-name').textContent = evData.event.name;
+          document.title = `${evData.event.name} — Message Wall`;
+        }
+      } catch {}
     }
 
-    window.addEventListener('DOMContentLoaded', loadQR);
+    // ── Init ──────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+      loadQR();
+      checkAuth();
+    });
   </script>
 </body>
 </html>
