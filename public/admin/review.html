@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Event Review — QR Message Wall</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0d1a;
+      --bg2:     #13132a;
+      --bg3:     #1a1a35;
+      --border:  rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --text:    #e8e8f0;
+      --text2:   rgba(255,255,255,0.5);
+      --text3:   rgba(255,255,255,0.28);
+      --purple:  #7c6fcd;
+      --teal:    #1db887;
+      --amber:   #f5a623;
+      --red:     #ff5555;
+      --blue:    #4d96ff;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+
+    .back-btn {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text2);
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+    }
+
+    .back-btn:hover { color: var(--text); }
+
+    .header-info h1 { font-size: 1.4rem; font-weight: 700; }
+    .header-info p  { font-size: 0.82rem; color: var(--text2); margin-top: 2px; }
+
+    .header-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover    { opacity: 0.85; }
+    .btn-teal     { background: var(--teal);   color: #fff; }
+    .btn-purple   { background: var(--purple); color: #fff; }
+    .btn-ghost    { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid var(--border2); }
+
+    /* ── GRID ── */
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* ── STAT CARDS ── */
+    .stat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .stat-card .label { font-size: 0.73rem; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-card .value { font-size: 1.8rem; font-weight: 700; }
+    .stat-card.teal   .value { color: var(--teal); }
+    .stat-card.purple .value { color: var(--purple); }
+    .stat-card.amber  .value { color: var(--amber); }
+    .stat-card.red    .value { color: var(--red); }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .card h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── WORD CLOUD ── */
+    #word-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .word-tag {
+      border-radius: 20px;
+      font-weight: 700;
+      padding: 4px 12px;
+      cursor: default;
+      transition: transform 0.15s;
+    }
+
+    .word-tag:hover { transform: scale(1.05); }
+
+    /* ── TIMELINE ── */
+    #timeline-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 80px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .timeline-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+    .timeline-bar {
+      width: 20px;
+      background: var(--purple);
+      border-radius: 4px 4px 0 0;
+      opacity: 0.8;
+      min-height: 4px;
+      transition: opacity 0.15s;
+    }
+
+    .timeline-bar:hover { opacity: 1; }
+    .timeline-label { font-size: 0.6rem; color: var(--text3); white-space: nowrap; }
+
+    /* ── FILTERS ── */
+    .filters {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .filter-btn {
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border2);
+      background: none;
+      color: var(--text2);
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn.active {
+      background: rgba(124,111,205,0.2);
+      border-color: var(--purple);
+      color: var(--text);
+    }
+
+    .search-input {
+      padding: 6px 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+      width: 200px;
+    }
+
+    /* ── MESSAGES ── */
+    .msg-count { font-size: 0.78rem; color: var(--text2); margin-bottom: 12px; }
+
+    .msg-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .msg-item:last-child { border-bottom: none; }
+    .msg-item.deleted { opacity: 0.45; }
+
+    .msg-num  { font-size: 0.72rem; color: var(--text3); min-width: 28px; padding-top: 2px; }
+    .msg-body { flex: 1; }
+    .msg-text { font-size: 0.88rem; line-height: 1.4; margin-bottom: 3px; }
+    .msg-meta { font-size: 0.72rem; color: var(--text3); }
+    .msg-del  { font-size: 0.7rem; color: var(--red); margin-left: 8px; }
+
+    .msg-list-wrap { max-height: 500px; overflow-y: auto; }
+
+    /* ── AUDIT LOG ── */
+    .audit-item {
+      display: flex;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+      align-items: center;
+    }
+
+    .audit-item:last-child { border-bottom: none; }
+    .audit-time { color: var(--text3); font-size: 0.75rem; min-width: 140px; }
+    .audit-user { color: var(--blue); min-width: 80px; }
+
+    .audit-type {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .type-refresh    { background: rgba(255,85,85,0.15);   color: var(--red); }
+    .type-trim       { background: rgba(245,166,35,0.15);  color: var(--amber); }
+    .type-delete     { background: rgba(255,85,85,0.15);   color: var(--red); }
+    .type-event_start{ background: rgba(29,184,135,0.15);  color: var(--teal); }
+    .type-event_end  { background: rgba(255,255,255,0.08); color: var(--text2); }
+    .type-slide      { background: rgba(124,111,205,0.15); color: var(--purple); }
+
+    /* ── STATUS BADGE ── */
+    .status-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+
+    .status-live  { background: rgba(29,184,135,0.15); color: var(--teal); }
+    .status-ended { background: rgba(255,255,255,0.08); color: var(--text2); }
+
+    /* ── EMPTY ── */
+    .empty { text-align: center; padding: 32px; color: var(--text3); font-size: 0.85rem; }
+    .empty .icon { font-size: 2rem; margin-bottom: 8px; }
+
+    /* ── LOADING ── */
+    .loading { text-align: center; padding: 40px; color: var(--text3); }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <a href="/admin/dashboard" class="back-btn">← Dashboard</a>
+  <div class="header-info">
+    <h1 id="event-title">Loading...</h1>
+    <p id="event-meta">—</p>
+  </div>
+  <div class="header-actions">
+    <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text2);cursor:pointer">
+      <input type="checkbox" id="include-deleted" onchange="reload()"/> Show deleted
+    </label>
+    <button class="btn btn-teal"   onclick="exportCSV()">⬇ CSV</button>
+    <button class="btn btn-purple" onclick="exportPDF()">⬇ PDF</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="grid-4" id="stats-grid">
+  <div class="loading">Loading stats...</div>
+</div>
+
+<!-- Word cloud + Timeline -->
+<div class="grid-2">
+  <div class="card">
+    <h3>☁️ Word Cloud</h3>
+    <div id="word-cloud"><div class="empty"><div class="icon">💬</div>No words yet</div></div>
+  </div>
+  <div class="card">
+    <h3>📈 Message Timeline</h3>
+    <div id="timeline-chart"><div class="empty" style="width:100%"><div class="icon">📈</div>No data</div></div>
+  </div>
+</div>
+
+<!-- Messages -->
+<div class="card">
+  <h3>💬 Messages</h3>
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+    <button class="filter-btn" onclick="setFilter('visible', this)">Visible</button>
+    <button class="filter-btn" onclick="setFilter('deleted', this)">Deleted</button>
+    <input class="search-input" id="search-input" placeholder="Search messages..." oninput="renderMessages()"/>
+  </div>
+  <div class="msg-count" id="msg-count"></div>
+  <div class="msg-list-wrap">
+    <div id="msg-list"><div class="loading">Loading messages...</div></div>
+  </div>
+</div>
+
+<!-- Audit Log -->
+<div class="card">
+  <h3>🔍 Moderation Audit Log</h3>
+  <div id="audit-list"><div class="loading">Loading...</div></div>
+</div>
+
+<script>
+  // ── State ─────────────────────────────────────────────────
+  const params  = new URLSearchParams(window.location.search);
+  const eventId = params.get('eventId');
+  const region  = params.get('region') || 'us';
+
+  let allMessages = [];
+  let activeFilter = 'all';
+
+  if (!eventId) {
+    document.body.innerHTML = '<div style="text-align:center;padding:60px;color:#888">No event selected. <a href="/admin/dashboard" style="color:#7c6fcd">Back to dashboard</a></div>';
+  }
+
+  // ── Load all data ─────────────────────────────────────────
+  async function loadAll() {
+    await Promise.all([loadStats(), loadWordCloud(), loadTimeline(), loadMessages()]);
+  }
+
+  function reload() { loadMessages(); }
+
+  // ── Stats ─────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const res  = await fetch(`/review/${eventId}/stats`, { credentials: 'include' });
+      const data = await res.json();
+      const { event, stats, actions } = data;
+
+      document.getElementById('event-title').textContent = event?.name || 'Event Review';
+      document.getElementById('event-meta').textContent  =
+        `${event?.type || '—'} · ${event?.startedAt ? new Date(event.startedAt).toLocaleDateString() : '—'} · ${region.toUpperCase()} · ` +
+        `<span class="status-badge status-${event?.status}">${event?.status}</span>`;
+
+      document.title = `${event?.name} — Review`;
+
+      document.getElementById('stats-grid').innerHTML = `
+        <div class="stat-card teal">
+          <div class="label">Total messages</div>
+          <div class="value">${stats.totalMessages}</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="label">Visible</div>
+          <div class="value">${stats.visibleMessages}</div>
+        </div>
+        <div class="stat-card red">
+          <div class="label">Deleted</div>
+          <div class="value">${stats.deletedMessages}</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="label">Photos shown</div>
+          <div class="value">${stats.totalPhotos}</div>
+        </div>
+      `;
+
+      // Audit log
+      const auditEl = document.getElementById('audit-list');
+      if (!actions.length) {
+        auditEl.innerHTML = '<div class="empty"><div class="icon">🔍</div>No moderation actions</div>';
+      } else {
+        auditEl.innerHTML = actions.map(a => `
+          <div class="audit-item">
+            <span class="audit-time">${new Date(a.performedAt).toLocaleString()}</span>
+            <span class="audit-user">${a.performedBy?.username || '—'}</span>
+            <span class="audit-type type-${a.type}">${a.type.replace('_', ' ')}</span>
+            ${a.detail ? `<span style="font-size:0.75rem;color:var(--text3)">${JSON.stringify(a.detail)}</span>` : ''}
+          </div>`).join('');
+      }
+    } catch (err) {
+      console.error('Stats error:', err);
+    }
+  }
+
+  // ── Word cloud ─────────────────────────────────────────────
+  async function loadWordCloud() {
+    try {
+      const res   = await fetch(`/review/${eventId}/wordcloud`, { credentials: 'include' });
+      const words = await res.json();
+      const el    = document.getElementById('word-cloud');
+
+      if (!words.length) {
+        el.innerHTML = '<div class="empty"><div class="icon">☁️</div>Not enough messages yet</div>';
+        return;
+      }
+
+      const maxCount = words[0].count;
+      const colors   = ['#7c6fcd','#1db887','#4d96ff','#f5a623','#ff6b6b','#48dbfb','#ff6fd8','#6bcb77'];
+
+      el.innerHTML = words.map((w, i) => {
+        const size = 0.75 + (w.count / maxCount) * 1.4;
+        const color = colors[i % colors.length];
+        return `<span class="word-tag" style="font-size:${size.toFixed(2)}rem;background:${color}22;color:${color};border:1px solid ${color}44"
+          title="${w.count} times">${w.word}</span>`;
+      }).join('');
+    } catch (err) {
+      console.error('Word cloud error:', err);
+    }
+  }
+
+  // ── Timeline ───────────────────────────────────────────────
+  async function loadTimeline() {
+    try {
+      const res      = await fetch(`/review/${eventId}/timeline`, { credentials: 'include' });
+      const timeline = await res.json();
+      const el       = document.getElementById('timeline-chart');
+
+      if (!timeline.length) {
+        el.innerHTML = '<div class="empty" style="width:100%"><div class="icon">📈</div>No timeline data</div>';
+        return;
+      }
+
+      const maxCount = Math.max(...timeline.map(t => t.count));
+
+      el.innerHTML = timeline.map(t => {
+        const height = Math.max(4, Math.round((t.count / maxCount) * 72));
+        const time   = new Date(t.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `
+          <div class="timeline-bar-wrap" title="${t.count} messages at ${time}">
+            <div class="timeline-bar" style="height:${height}px"></div>
+            <div class="timeline-label">${time}</div>
+          </div>`;
+      }).join('');
+    } catch (err) {
+      console.error('Timeline error:', err);
+    }
+  }
+
+  // ── Messages ───────────────────────────────────────────────
+  async function loadMessages() {
+    try {
+      const includeDeleted = document.getElementById('include-deleted').checked;
+      const res  = await fetch(`/history?eventId=${eventId}&includeDeleted=${includeDeleted}`, { credentials: 'include' });
+      allMessages = await res.json();
+      renderMessages();
+    } catch (err) {
+      console.error('Messages error:', err);
+    }
+  }
+
+  function setFilter(filter, el) {
+    activeFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    renderMessages();
+  }
+
+  function renderMessages() {
+    const search  = document.getElementById('search-input').value.toLowerCase();
+    let filtered  = allMessages;
+
+    if (activeFilter === 'visible') filtered = filtered.filter(m => m.isVisible);
+    if (activeFilter === 'deleted') filtered = filtered.filter(m => !m.isVisible);
+    if (search) filtered = filtered.filter(m => m.content.toLowerCase().includes(search));
+
+    document.getElementById('msg-count').textContent = `${filtered.length} messages`;
+    const list = document.getElementById('msg-list');
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="empty"><div class="icon">💬</div>No messages found</div>';
+      return;
+    }
+
+    list.innerHTML = filtered.map((m, i) => `
+      <div class="msg-item ${!m.isVisible ? 'deleted' : ''}">
+        <div class="msg-num">${i + 1}</div>
+        <div class="msg-body">
+          <div class="msg-text">${escHtml(m.content)}</div>
+          <div class="msg-meta">
+            ${new Date(m.createdAt).toLocaleString()}
+            ${!m.isVisible ? `<span class="msg-del">deleted by ${m.deletedBy?.username || '?'} · ${m.deletedAt ? new Date(m.deletedAt).toLocaleString() : ''}</span>` : ''}
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── Exports ────────────────────────────────────────────────
+  function exportCSV() {
+    const includeDeleted = document.getElementById('include-deleted').checked;
+    window.open(`/review/${eventId}/export/csv?includeDeleted=${includeDeleted}`, '_blank');
+  }
+
+  function exportPDF() {
+    const includeDeleted = document.getElementById('include-deleted').checked;
+    window.open(`/review/${eventId}/export/pdf?includeDeleted=${includeDeleted}`, '_blank');
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Init ──────────────────────────────────────────────────
+  if (eventId) loadAll();
+</script>
+</body>
+</html>

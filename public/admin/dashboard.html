@@ -613,6 +613,7 @@
         </label>
         <button class="btn btn-ghost" onclick="loadHistory()">Load</button>
         <button class="btn btn-teal" onclick="exportCSV()" id="btn-export-csv" style="display:none">⬇ Export CSV</button>
+        <button class="btn btn-purple" onclick="exportPDF()" id="btn-export-pdf" style="display:none">⬇ Export PDF</button>
       </div>
       <div id="history-list">
         <div class="empty"><div class="icon">📋</div>Select an event above</div>
@@ -1026,6 +1027,7 @@
       const msgs = await res.json();
       const list = document.getElementById('history-list');
       document.getElementById('btn-export-csv').style.display = msgs.length ? '' : 'none';
+      document.getElementById('btn-export-pdf').style.display = msgs.length ? '' : 'none';
 
       if (!msgs.length) {
         list.innerHTML = '<div class="empty"><div class="icon">📋</div>No messages found</div>';
@@ -1048,16 +1050,19 @@
   }
 
   function reviewEvent(id) {
-    const sel = document.getElementById('history-event-select');
-    if (sel) sel.value = id;
-    showPage('history');
-    loadHistory();
+    window.location.href = `/admin/review?eventId=${id}&region=${user.region}`;
   }
 
   function exportCSV() {
     const eventId = document.getElementById('history-event-select').value;
     if (!eventId) return;
-    window.open(`/history/export?eventId=${eventId}`, '_blank');
+    window.open(`/review/${eventId}/export/csv`, '_blank');
+  }
+
+  function exportPDF() {
+    const eventId = document.getElementById('history-event-select').value;
+    if (!eventId) return;
+    window.open(`/review/${eventId}/export/pdf`, '_blank');
   }
 
   // ── Users (admin only) ────────────────────────────────────

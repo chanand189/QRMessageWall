@@ -10,6 +10,7 @@ const { authenticate, requireRole } = require('./src/middleware/auth');
 const authRoutes    = require('./src/routes/auth');
 const messageRoutes = require('./src/routes/messages');
 const photoRoutes   = require('./src/routes/photos');
+const reviewRoutes  = require('./src/routes/review');
 const eventRoutes   = require('./src/routes/events');
 const { getActiveEvent } = require('./src/services/eventService');
 const { getVisibleMessages } = require('./src/services/messageService');
@@ -50,6 +51,7 @@ app.use('/auth',   authRoutes);
 app.use('/',       messageRoutes);
 app.use('/events', eventRoutes);
 app.use('/photos', photoRoutes);
+app.use('/review', reviewRoutes);
 
 // ── Pages ────────────────────────────────────────────────────
 app.get('/login', (req, res) =>
@@ -62,7 +64,9 @@ app.get('/submit', (req, res) =>
 app.get('/admin/dashboard', authenticate, requireRole('moderator', 'admin'), (req, res) =>
   res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html')));
 
-// History CSV export
+// Admin review page
+app.get('/admin/review', authenticate, requireRole('moderator', 'admin'), (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'admin', 'review.html')));
 app.get('/history/export', authenticate, requireRole('moderator', 'admin'), async (req, res) => {
   try {
     const { getHistory } = require('./src/services/messageService');
