@@ -3,20 +3,22 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "prisma generate --schema=prisma/schema.prisma",
+    "postinstall": "prisma generate --schema=prisma/schema.prisma"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@prisma/client": "^7.8.0",
-    "bcryptjs": "^3.0.3",
-    "cookie-parser": "^1.4.7",
-    "dotenv": "^17.4.2",
+    "@prisma/client": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.0.0",
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.3",
+    "jsonwebtoken": "^9.0.0",
     "leo-profanity": "^1.9.0",
-    "prisma": "^7.8.0",
+    "prisma": "^6.0.0",
     "qrcode": "^1.5.3",
     "socket.io": "^4.7.2"
   }
