@@ -454,7 +454,7 @@
   <div class="page active" id="page-overview">
     <div class="page-header">
       <div><h2>Overview</h2><p>Live status of your message wall</p></div>
-      <button class="btn btn-primary admin-only" onclick="openCreateEvent()" id="btn-create-event">+ New Event</button>
+      <button class="btn btn-primary admin-only" onclick="openCreateEvent()" id="btn-create-event" style="display:none">+ New Event</button>
     </div>
 
     <!-- Live event banner -->
@@ -467,7 +467,7 @@
       <div class="banner-actions">
         <button class="btn btn-ghost" onclick="showPage('controls')">🛠 Controls</button>
         <button class="btn btn-ghost" onclick="showPage('messages')">💬 Messages</button>
-        <button class="btn btn-red admin-only" onclick="confirmEndEvent()" id="btn-end-event">End Event</button>
+        <button class="btn btn-red admin-only" onclick="confirmEndEvent()" id="btn-end-event" style="display:none">End Event</button>
       </div>
     </div>
 
@@ -511,7 +511,7 @@
   <div class="page" id="page-events">
     <div class="page-header">
       <div><h2>Events</h2><p>Manage your message wall events</p></div>
-      <button class="btn btn-primary admin-only" onclick="openCreateEvent()">+ New Event</button>
+      <button class="btn btn-primary admin-only" onclick="openCreateEvent()" style="display:none">+ New Event</button>
     </div>
     <div class="card">
       <div class="table-wrap">
@@ -717,9 +717,11 @@
       document.getElementById('sb-region').textContent = user.region === 'asia' ? '🌏 Asia' : '🇺🇸 US';
 
       // Show admin-only elements
+      console.log('User role:', user.role);
       if (user.role === 'admin') {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
         document.getElementById('nav-users').style.display = 'flex';
+        console.log('Admin elements shown');
       }
 
       await loadOverview();
@@ -831,6 +833,7 @@
   async function createEvent() {
     const name = document.getElementById('new-event-name').value.trim();
     const type = document.getElementById('new-event-type').value;
+    console.log('Creating event:', { name, type });
     if (!name) { toast('Event name is required', 'error'); return; }
 
     try {
@@ -840,6 +843,7 @@
         body: JSON.stringify({ name, type }),
       });
       const data = await res.json();
+      console.log('Create event response:', res.status, data);
       if (!res.ok) { toast(data.error || 'Failed to create event', 'error'); return; }
 
       closeModal('modal-create-event');
@@ -847,7 +851,8 @@
       activeEvent = data.event;
       await loadOverview();
       await loadEvents();
-    } catch {
+    } catch (err) {
+      console.error('Create event error:', err);
       toast('Network error', 'error');
     }
   }
