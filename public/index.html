@@ -333,7 +333,18 @@
     // ── Check if logged in as mod/admin ──────────────────────
     async function checkAuth() {
       try {
-        const res  = await fetch('/auth/me', { credentials: 'include' });
+        let res = await fetch('/auth/me', { credentials: 'include' });
+
+        // Token may be expired — try refreshing once
+        if (res.status === 401) {
+          const refreshRes = await fetch('/auth/refresh', {
+            method: 'POST', credentials: 'include'
+          });
+          if (refreshRes.ok) {
+            res = await fetch('/auth/me', { credentials: 'include' });
+          }
+        }
+
         if (!res.ok) return;
         const data = await res.json();
         const role = data.user?.role;

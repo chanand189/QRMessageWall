@@ -7,7 +7,7 @@
 const jwt = require('jsonwebtoken');
 
 const SECRET           = process.env.JWT_SECRET;
-const EXPIRES_IN       = process.env.JWT_EXPIRES_IN       || '15m';
+const EXPIRES_IN       = process.env.JWT_EXPIRES_IN       || '2h';
 const REFRESH_EXPIRES  = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
 function signToken(payload) {
