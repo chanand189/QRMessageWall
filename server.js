@@ -2,14 +2,16 @@ require('dotenv').config();
 const express      = require('express');
 const http         = require('http');
 const { Server }   = require('socket.io');
-const QRCode       = require('qrcode');
 const path         = require('path');
 const os           = require('os');
 const cookieParser = require('cookie-parser');
-const leoProfanity = require('leo-profanity');
 
-const { authenticate, requireRole, softAuthenticate } = require('./src/middleware/auth');
-const authRoutes   = require('./src/routes/auth');
+const { authenticate, requireRole } = require('./src/middleware/auth');
+const authRoutes    = require('./src/routes/auth');
+const messageRoutes = require('./src/routes/messages');
+const eventRoutes   = require('./src/routes/events');
+const { getActiveEvent } = require('./src/services/eventService');
+const { getVisibleMessages } = require('./src/services/messageService');
 
 // ── App setup ────────────────────────────────────────────────
 const app    = express();
@@ -21,13 +23,6 @@ const BASE_URL = process.env.PUBLIC_URL
   || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
   || `http://${getLocalIP()}:${PORT}`;
 
-const SUBMIT_URL = `${BASE_URL}/submit`;
-
-// In-memory message buffer (still used for live wall speed)
-// Persisted to DB via Phase 3
-let messages = [];
-const MAX_MESSAGES = 50;
-
 function getLocalIP() {
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets))
@@ -36,132 +31,77 @@ function getLocalIP() {
   return '127.0.0.1';
 }
 
-// ── Content moderation ───────────────────────────────────────
-const NEGATIVE_PATTERNS = [
-  /\bkill\s*(your|ur)\s*self\b/i, /\bkys\b/i, /\bgo\s*(die|hang)\b/i,
-  /\byou\s*(are|r|'re)\s*(worthless|pathetic|disgusting|ugly|stupid|a\s*loser|trash|garbage|nothing|a\s*waste)\b/i,
-  /\bno\s*one\s*(likes|loves|wants|cares\s*about)\s*you\b/i,
-  /\byou\s*should\s*(die|not\s*exist|disappear|end\s*it)\b/i,
-  /\bI\s*hate\s*(you|everyone|all\s*of\s*you)\b/i,
-  /\bdie\s*(slow|painfully|already)\b/i,
-  /\b(loser|idiot|moron|imbecile|scum|vermin|freak)\b/i,
-  /\bshame\s*on\s*you\b/i, /\byou\s*(deserve|deserved)\s*it\b/i,
-];
-const HARMFUL_PATTERNS = [
-  /\b(i('ll|\s*will|\s*am\s*going\s*to)|gonna)\s*(kill|shoot|stab|bomb|attack|hurt|murder)\b/i,
-  /\b(bomb|explosive|grenade)\s*(threat|attack|you|this\s*place)\b/i,
-  /\b(shoot|gun|knife)\s*(you|everyone|them|him|her)\b/i,
-  /\bself[\s-]?harm\b/i, /\bcut\s*(yourself|myself|my\s*wrist)\b/i,
-  /\b(suicide|suicidal)\b/i, /\bend\s*(my|your|their)\s*life\b/i,
-  /\b(buy|sell|deal|score)\s*(drugs|meth|cocaine|heroin|fentanyl)\b/i,
-  /\bhow\s*to\s*(make\s*a\s*(bomb|weapon)|buy\s*(guns|drugs))\b/i,
-];
-
-function moderateMessage(text) {
-  if (leoProfanity.check(text)) return { blocked: true, reason: 'Message contains profanity or abusive language.' };
-  for (const p of NEGATIVE_PATTERNS) if (p.test(text)) return { blocked: true, reason: 'Message contains hostile or harmful sentiments.' };
-  for (const p of HARMFUL_PATTERNS)  if (p.test(text)) return { blocked: true, reason: 'Message contains threatening or harmful content.' };
-  return { blocked: false };
-}
-
 // ── Middleware ───────────────────────────────────────────────
 app.use(express.json());
 app.use(cookieParser());
-app.use((req, res, next) => { console.log(`${req.method} ${req.path}`); next(); });
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  // Attach io to every request so routes can emit events
+  req.io = io;
+  next();
+});
 
 app.get('/healthz', (req, res) => res.sendStatus(200));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Auth routes ──────────────────────────────────────────────
-app.use('/auth', authRoutes);
+// ── Routes ───────────────────────────────────────────────────
+app.use('/auth',   authRoutes);
+app.use('/',       messageRoutes);
+app.use('/events', eventRoutes);
 
-// ── Login page ───────────────────────────────────────────────
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
+// ── Pages ────────────────────────────────────────────────────
+app.get('/login', (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'login.html')));
 
-// ── Protected: admin dashboard (Phase 4) ────────────────────
-app.get('/admin/dashboard', authenticate, requireRole('moderator', 'admin'), (req, res) => {
-  // Placeholder — full dashboard built in Phase 4
-  res.json({ message: `Welcome ${req.user.username} (${req.user.role}) — dashboard coming in Phase 4` });
-});
+app.get('/submit', (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'submit.html')));
 
-// ── Submit page ──────────────────────────────────────────────
-app.get('/submit', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'submit.html'));
-});
+// Admin dashboard placeholder — full UI built in Phase 4
+app.get('/admin/dashboard', authenticate, requireRole('moderator', 'admin'), (req, res) =>
+  res.json({ message: `Welcome ${req.user.username} (${req.user.role}) — dashboard coming in Phase 4` }));
 
-// ── QR code ─────────────────────────────────────────────────
+// ── QR code (uses active event QR if available) ──────────────
 app.get('/qrcode', async (req, res) => {
   try {
-    const qr = await QRCode.toDataURL(SUBMIT_URL, {
+    const region = req.query.region || 'us';
+    const active = await getActiveEvent(region);
+    if (active?.qrCodeUrl) {
+      return res.json({ qr: active.qrCodeUrl, url: active.submitUrl });
+    }
+    // Fallback — no active event
+    const QRCode    = require('qrcode');
+    const submitUrl = `${BASE_URL}/submit`;
+    const qr        = await QRCode.toDataURL(submitUrl, {
       width: 400, margin: 2,
       color: { dark: '#1a1a2e', light: '#ffffff' },
     });
-    res.json({ qr, url: SUBMIT_URL });
+    res.json({ qr, url: submitUrl });
   } catch {
     res.status(500).json({ error: 'QR generation failed' });
   }
 });
 
-// ── Messages (public read) ───────────────────────────────────
-app.get('/messages', (req, res) => res.json(messages));
-
-// ── Post message (public) ────────────────────────────────────
-app.post('/message', (req, res) => {
-  const text = ((req.body && req.body.text) || '').trim().slice(0, 200);
-  if (!text) return res.status(400).json({ error: 'Empty message' });
-
-  const verdict = moderateMessage(text);
-  if (verdict.blocked) return res.status(400).json({ error: verdict.reason });
-
-  const msg = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2),
-    text,
-    timestamp: Date.now(),
-  };
-
-  messages.unshift(msg);
-  if (messages.length > MAX_MESSAGES) messages = messages.slice(0, MAX_MESSAGES);
-  io.emit('new-message', msg);
-  res.json({ ok: true });
-});
-
-// ── Clear wall (moderator+) ───────────────────────────────────
-app.post('/clear-messages', authenticate, requireRole('moderator', 'admin'), (req, res) => {
-  messages = [];
-  io.emit('clear-wall');
-  res.json({ ok: true });
-});
-
-// ── Trim wall — keep last N (moderator+) ─────────────────────
-app.post('/trim-messages', authenticate, requireRole('moderator', 'admin'), (req, res) => {
-  const keep = parseInt(req.body?.keep) || 10;
-  if (messages.length > keep) {
-    const removed = messages.splice(keep); // remove oldest
-    io.emit('hide-messages', removed.map(m => m.id));
+// ── Socket.io — send history on connect ─────────────────────
+io.on('connection', async (socket) => {
+  try {
+    // Try to load messages from DB for default region
+    // Wall page will pass region via query in Phase 4
+    const region = 'us';
+    const active = await getActiveEvent(region);
+    if (active) {
+      const messages = await getVisibleMessages({ eventId: active.id, region });
+      socket.emit('history', messages);
+    } else {
+      socket.emit('history', []);
+    }
+  } catch {
+    socket.emit('history', []);
   }
-  res.json({ ok: true, kept: messages.length });
-});
-
-// ── Delete selected messages (moderator+) ────────────────────
-app.delete('/messages', authenticate, requireRole('moderator', 'admin'), (req, res) => {
-  const ids = req.body?.ids || [];
-  if (!ids.length) return res.status(400).json({ error: 'No message IDs provided' });
-  messages = messages.filter(m => !ids.includes(m.id));
-  io.emit('remove-messages', ids);
-  res.json({ ok: true });
-});
-
-// ── Real-time ────────────────────────────────────────────────
-io.on('connection', (socket) => {
-  socket.emit('history', messages);
 });
 
 // ── Start ────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Listening on port : ${PORT}`);
   console.log(`Wall display      : ${BASE_URL}`);
-  console.log(`Submit page       : ${SUBMIT_URL}`);
   console.log(`Login page        : ${BASE_URL}/login`);
 });
