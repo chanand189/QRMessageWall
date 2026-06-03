@@ -1,0 +1,187 @@
+// ─────────────────────────────────────────────────────────────
+//  QR Message Wall — Prisma Schema
+//  Phase 1: Full data model
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  admin
+  moderator
+  viewer
+}
+
+enum EventType {
+  birthday
+  wedding
+  survey
+  other
+}
+
+enum EventStatus {
+  draft
+  live
+  ended
+}
+
+enum PhotoStatus {
+  queued
+  displaying
+  displayed
+}
+
+// ─────────────────────────────────────────────────────────────
+//  USERS
+//  Stores admin, moderator and viewer accounts.
+//  Passwords are bcrypt-hashed — never stored in plain text.
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  passwordHash  String
+  role          Role      @default(viewer)
+  createdAt     DateTime  @default(now())
+  lastLogin     DateTime?
+
+  // Relations
+  eventsCreated Event[]        @relation("EventCreatedBy")
+  deletedMessages Message[]   @relation("MessageDeletedBy")
+  wallActions   WallAction[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  EVENTS
+//  Each event (birthday, wedding, survey) is isolated.
+//  Has its own QR code, message history and photo queue.
+//  Clearing the wall starts a new session within the same event.
+// ─────────────────────────────────────────────────────────────
+
+model Event {
+  id          String      @id @default(uuid())
+  name        String                          // e.g. "Sarah's Wedding"
+  type        EventType   @default(other)
+  status      EventStatus @default(draft)
+  qrCodeUrl   String?                         // unique QR per event
+  submitUrl   String?                         // URL encoded in QR
+
+  createdBy   User        @relation("EventCreatedBy", fields: [createdById], references: [id])
+  createdById String
+
+  createdAt   DateTime    @default(now())
+  startedAt   DateTime?
+  endedAt     DateTime?
+
+  // Sliding window config (auto-trim)
+  wallLimit   Int         @default(20)        // max visible messages on wall
+  autoSlide   Boolean     @default(true)      // auto-hide oldest when limit hit
+
+  // Relations
+  messages    Message[]
+  photos      PhotoQueue[]
+  wallActions WallAction[]
+
+  @@map("events")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  MESSAGES
+//  Soft delete only — rows are never removed from the DB.
+//  is_visible controls what appears on the live wall.
+//  deleted_by + deleted_at provide full audit trail.
+// ─────────────────────────────────────────────────────────────
+
+model Message {
+  id          String    @id @default(uuid())
+  content     String
+  ipHash      String?                         // hashed IP, not raw
+
+  event       Event     @relation(fields: [eventId], references: [id])
+  eventId     String
+
+  isVisible   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  // Soft delete audit
+  deletedBy   User?     @relation("MessageDeletedBy", fields: [deletedById], references: [id])
+  deletedById String?
+  deletedAt   DateTime?
+
+  @@index([eventId, isVisible])
+  @@index([eventId, createdAt])
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PHOTO QUEUE
+//  Photos are stored in Cloudflare R2 (object storage).
+//  Only the URL + metadata live in Postgres.
+//  After display, the file is deleted from R2 and status
+//  is set to 'displayed'. Row kept for audit purposes.
+// ─────────────────────────────────────────────────────────────
+
+model PhotoQueue {
+  id           String      @id @default(uuid())
+  caption      String?                         // optional message with photo
+  storageUrl   String                          // Cloudflare R2 object URL
+  storageKey   String                          // R2 key for deletion
+  status       PhotoStatus @default(queued)
+  durationSec  Int         @default(4)         // display duration 3–5 sec
+  submittedBy  String?                         // name or anonymous
+  ipHash       String?
+
+  event        Event       @relation(fields: [eventId], references: [id])
+  eventId      String
+
+  submittedAt  DateTime    @default(now())
+  displayedAt  DateTime?
+
+  @@index([eventId, status])
+  @@map("photo_queue")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  WALL ACTIONS  (audit log)
+//  Every moderation action is recorded here:
+//  refresh, trim, delete, slide, photo-delete etc.
+//  Immutable — rows are never updated or deleted.
+// ─────────────────────────────────────────────────────────────
+
+enum ActionType {
+  refresh       // full wall clear
+  trim          // keep last N
+  delete        // selected messages deleted
+  slide         // auto-slide removed oldest
+  event_start
+  event_end
+}
+
+model WallAction {
+  id            String      @id @default(uuid())
+  type          ActionType
+  detail        Json?                           // e.g. { count: 5, ids: [...] }
+
+  performedBy   User        @relation(fields: [performedById], references: [id])
+  performedById String
+
+  event         Event       @relation(fields: [eventId], references: [id])
+  eventId       String
+
+  performedAt   DateTime    @default(now())
+
+  @@index([eventId, performedAt])
+  @@map("wall_actions")
+}
