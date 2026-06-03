@@ -958,13 +958,22 @@
     if (!activeEvent) { toast('No active event', 'error'); return; }
     const limit = parseInt(document.getElementById('slide-input').value) || 20;
     try {
+      // Save new limit to event
       const res = await fetch(`/events/${activeEvent.id}/slide-limit`, {
         method: 'PATCH', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallLimit: limit }),
       });
       if (!res.ok) { toast('Failed to update limit', 'error'); return; }
-      toast(`Sliding window set to ${limit}`, 'success');
+
+      // Immediately trim wall to new limit
+      const trimRes = await fetch('/trim-messages', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keep: limit }),
+      });
+      const trimData = await trimRes.json();
+      toast(`Sliding window set to ${limit} — ${trimData.hidden || 0} messages hidden`, 'success');
     } catch { toast('Network error', 'error'); }
   }
 

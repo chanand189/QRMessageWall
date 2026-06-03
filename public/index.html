@@ -261,6 +261,7 @@
       const container = document.getElementById('circle-container');
       const el = document.createElement('div');
       el.classList.add('floating-msg');
+      el.dataset.id  = msg.id;   // ← needed for hide/remove by id
       el.textContent = msg.text;
       el.style.color = pickColor();
 
@@ -343,6 +344,26 @@
 
     socket.on('clear-wall', () => {
       clearWall();
+    });
+
+    // Hide specific messages (trim / auto-slide)
+    socket.on('hide-messages', (ids) => {
+      ids.forEach(id => {
+        // Remove from floating wall
+        const el = document.querySelector(`[data-id="${id}"]`);
+        if (el) el.remove();
+        // Remove from spotlight queue
+        spotlightQueue = spotlightQueue.filter(m => m.id !== id);
+      });
+    });
+
+    // Remove selected messages (moderator delete)
+    socket.on('remove-messages', (ids) => {
+      ids.forEach(id => {
+        const el = document.querySelector(`[data-id="${id}"]`);
+        if (el) el.remove();
+        spotlightQueue = spotlightQueue.filter(m => m.id !== id);
+      });
     });
 
     // ── QR Code ──
