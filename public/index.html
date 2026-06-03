@@ -544,6 +544,7 @@
 
     // ── Photo slideshow ───────────────────────────────────────
     let photoTimerRunning = false;
+    const wallRegion = new URLSearchParams(window.location.search).get('region') || 'us';
 
     async function startPhotoTimer() {
       if (photoTimerRunning) return;
@@ -554,7 +555,7 @@
     async function checkNextPhoto() {
       if (!photoTimerRunning) return;
       try {
-        const res  = await fetch(`/photos/next?region=us`);
+        const res  = await fetch(`/photos/next?region=${wallRegion}`);
         const data = await res.json();
 
         if (data.photo) {
@@ -603,7 +604,7 @@
               await fetch(`/photos/${photo.id}/displayed`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ region: 'us' }),
+                body: JSON.stringify({ region: wallRegion }),
               });
             } catch {}
 
