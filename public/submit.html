@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Add Your Message</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%);
@@ -30,40 +30,74 @@
     }
 
     h1 {
-      font-size: clamp(1.6rem, 7vw, 2rem);
+      font-size: clamp(1.5rem, 7vw, 2rem);
       font-weight: 800;
       background: linear-gradient(90deg, #ff6b6b, #c77dff, #4d96ff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-bottom: 0.3rem;
+      margin-bottom: 0.2rem;
     }
 
     .subtitle {
       color: rgba(255,255,255,0.45);
-      font-size: 0.9rem;
-      margin-bottom: 1.5rem;
+      font-size: 0.88rem;
+      margin-bottom: 1.4rem;
     }
 
-    textarea {
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1.4rem;
+      background: rgba(255,255,255,0.05);
+      padding: 4px;
+      border-radius: 12px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 9px;
+      background: none;
+      color: rgba(255,255,255,0.45);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
+    /* ── PANELS ── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── INPUTS ── */
+    textarea, input[type="text"] {
       width: 100%;
       background: rgba(255,255,255,0.07);
       border: 1.5px solid rgba(255,255,255,0.12);
       border-radius: 14px;
-      padding: 1rem 1rem 0.7rem;
+      padding: 1rem;
       color: #fff;
       font-size: 1rem;
       font-family: inherit;
-      resize: none;
       outline: none;
       transition: border-color 0.2s, box-shadow 0.2s;
       line-height: 1.5;
-      rows: 4;
     }
 
-    textarea::placeholder { color: rgba(255,255,255,0.3); }
+    textarea { resize: none; }
 
-    textarea:focus {
+    textarea::placeholder,
+    input[type="text"]::placeholder { color: rgba(255,255,255,0.3); }
+
+    textarea:focus, input[type="text"]:focus {
       border-color: rgba(100,100,255,0.6);
       box-shadow: 0 0 0 3px rgba(100,100,255,0.15);
     }
@@ -75,15 +109,108 @@
       margin-bottom: 1rem;
     }
 
-    .char-count {
-      color: rgba(255,255,255,0.3);
+    .char-count              { color: rgba(255,255,255,0.3); font-size: 0.78rem; }
+    .char-count.near-limit   { color: #ffd93d; }
+    .char-count.at-limit     { color: #ff6b6b; }
+
+    .field { margin-bottom: 1rem; }
+    .field label {
+      display: block;
       font-size: 0.78rem;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 6px;
     }
 
-    .char-count.near-limit { color: #ffd93d; }
-    .char-count.at-limit   { color: #ff6b6b; }
+    /* ── PHOTO DROP ZONE ── */
+    .drop-zone {
+      border: 2px dashed rgba(255,255,255,0.15);
+      border-radius: 14px;
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+      margin-bottom: 1rem;
+    }
 
-    button {
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: rgba(100,100,255,0.5);
+      background: rgba(100,100,255,0.06);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon { font-size: 2rem; margin-bottom: 8px; }
+    .drop-text { font-size: 0.85rem; color: rgba(255,255,255,0.45); }
+    .drop-hint { font-size: 0.72rem; color: rgba(255,255,255,0.25); margin-top: 4px; }
+
+    /* ── PREVIEW ── */
+    #photo-preview-wrap {
+      display: none;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    #photo-preview {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    #remove-photo {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: rgba(0,0,0,0.6);
+      border: none;
+      border-radius: 50%;
+      width: 28px; height: 28px;
+      color: #fff;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── DURATION PICKER ── */
+    .duration-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .dur-btn {
+      flex: 1;
+      padding: 8px;
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.5);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+
+    .dur-btn.active {
+      border-color: rgba(100,100,255,0.5);
+      background: rgba(100,100,255,0.12);
+      color: #fff;
+    }
+
+    /* ── SUBMIT BUTTON ── */
+    .submit-btn {
       width: 100%;
       padding: 1rem;
       background: linear-gradient(135deg, #4d96ff 0%, #c77dff 100%);
@@ -99,16 +226,44 @@
       box-shadow: 0 4px 20px rgba(77,150,255,0.3);
     }
 
-    button:active:not(:disabled) {
+    .submit-btn:active:not(:disabled) {
       transform: scale(0.97);
       box-shadow: 0 2px 10px rgba(77,150,255,0.2);
     }
 
-    button:disabled {
-      opacity: 0.45;
-      cursor: default;
+    .submit-btn:disabled { opacity: 0.45; cursor: default; }
+
+    /* ── PROGRESS ── */
+    .progress-wrap {
+      display: none;
+      margin-bottom: 1rem;
     }
 
+    .progress-wrap.show { display: block; }
+
+    .progress-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4d96ff, #c77dff);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .progress-label {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.4);
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    /* ── FEEDBACK ── */
     .feedback {
       margin-top: 1rem;
       padding: 0.85rem 1rem;
@@ -116,98 +271,299 @@
       text-align: center;
       font-size: 0.95rem;
       font-weight: 600;
+      display: none;
     }
 
-    .feedback.success {
-      background: rgba(107,203,119,0.15);
-      border: 1.5px solid #6bcb77;
-      color: #6bcb77;
-    }
-
-    .feedback.error {
-      background: rgba(255,107,107,0.15);
-      border: 1.5px solid #ff6b6b;
-      color: #ff6b6b;
-    }
-
-    .hidden { display: none; }
+    .feedback.show { display: block; }
+    .feedback.success { background: rgba(107,203,119,0.15); border: 1.5px solid #6bcb77; color: #6bcb77; }
+    .feedback.error   { background: rgba(255,107,107,0.15); border: 1.5px solid #ff6b6b; color: #ff6b6b; }
+    .feedback.info    { background: rgba(77,150,255,0.15);  border: 1.5px solid #4d96ff; color: #4d96ff; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Leave a Message</h1>
-    <p class="subtitle">Your message will appear on the wall instantly</p>
+    <h1>Join the Wall</h1>
+    <p class="subtitle" id="event-subtitle">Your message appears on the wall instantly</p>
 
-    <textarea
-      id="msg-input"
-      placeholder="Type something fun..."
-      maxlength="200"
-      rows="4"
-      autofocus
-    ></textarea>
-
-    <div class="char-row">
-      <span class="char-count" id="char-count">0 / 200</span>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('message')">💬 Message</button>
+      <button class="tab"        onclick="switchTab('photo')">📷 Photo</button>
     </div>
 
-    <button id="submit-btn">Send to Wall</button>
+    <!-- MESSAGE PANEL -->
+    <div class="panel active" id="panel-message">
+      <textarea id="msg-input" placeholder="Type something fun..." maxlength="200" rows="4" autofocus></textarea>
+      <div class="char-row">
+        <span class="char-count" id="char-count">0 / 200</span>
+      </div>
+      <button class="submit-btn" id="msg-btn" onclick="sendMessage()">Send to Wall 🚀</button>
+    </div>
 
-    <div id="feedback" class="feedback hidden"></div>
+    <!-- PHOTO PANEL -->
+    <div class="panel" id="panel-photo">
+
+      <!-- Drop zone -->
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="photo-input" accept="image/*" onchange="handleFile(this.files[0])"/>
+        <div class="drop-icon">📷</div>
+        <div class="drop-text">Tap to choose a photo</div>
+        <div class="drop-hint">JPG, PNG, WEBP · Max 10MB</div>
+      </div>
+
+      <!-- Preview -->
+      <div id="photo-preview-wrap">
+        <img id="photo-preview" src="" alt="Preview"/>
+        <button id="remove-photo" onclick="removePhoto()">✕</button>
+      </div>
+
+      <!-- Caption -->
+      <div class="field">
+        <label>Caption (optional)</label>
+        <input type="text" id="photo-caption" placeholder="Add a caption..." maxlength="200"/>
+      </div>
+
+      <!-- Your name -->
+      <div class="field">
+        <label>Your name (optional)</label>
+        <input type="text" id="photo-name" placeholder="Anonymous" maxlength="50"/>
+      </div>
+
+      <!-- Duration -->
+      <div class="field">
+        <label>Display duration</label>
+        <div class="duration-row">
+          <div class="dur-btn" onclick="setDuration(3, this)">3 sec</div>
+          <div class="dur-btn active" onclick="setDuration(4, this)">4 sec</div>
+          <div class="dur-btn" onclick="setDuration(5, this)">5 sec</div>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-label" id="progress-label">Uploading...</div>
+      </div>
+
+      <button class="submit-btn" id="photo-btn" onclick="sendPhoto()">Add to Queue 📷</button>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
   </div>
 
   <script>
-    const input     = document.getElementById('msg-input');
-    const countEl   = document.getElementById('char-count');
-    const btn       = document.getElementById('submit-btn');
-    const feedback  = document.getElementById('feedback');
+    // ── State ────────────────────────────────────────────────
+    let selectedFile = null;
+    let duration     = 4;
+    let eventId      = null;
+    let region       = 'us';
+
+    // Read eventId + region from URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('eventId')) eventId = params.get('eventId');
+    if (params.get('region'))  region  = params.get('region');
+
+    // Load event name
+    async function loadEventName() {
+      try {
+        const res  = await fetch(`/events/active?region=${region}`);
+        const data = await res.json();
+        if (data.active) {
+          document.getElementById('event-subtitle').textContent = `${data.event.name} — share your message!`;
+          document.title = `${data.event.name} — Message Wall`;
+        }
+      } catch {}
+    }
+
+    // ── Tabs ─────────────────────────────────────────────────
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach((t, i) =>
+        t.classList.toggle('active', (tab === 'message' && i === 0) || (tab === 'photo' && i === 1)));
+      document.getElementById('panel-message').classList.toggle('active', tab === 'message');
+      document.getElementById('panel-photo').classList.toggle('active', tab === 'photo');
+      hideFeedback();
+    }
+
+    // ── Message ───────────────────────────────────────────────
+    const input   = document.getElementById('msg-input');
+    const countEl = document.getElementById('char-count');
 
     input.addEventListener('input', () => {
       const len = input.value.length;
       countEl.textContent = `${len} / 200`;
-      countEl.className = 'char-count' +
-        (len >= 200 ? ' at-limit' : len >= 160 ? ' near-limit' : '');
+      countEl.className   = 'char-count' + (len >= 200 ? ' at-limit' : len >= 160 ? ' near-limit' : '');
     });
 
     async function sendMessage() {
       const text = input.value.trim();
-      if (!text) return;
+      if (!text) { showFeedback('Please type a message first', 'error'); return; }
 
+      const btn = document.getElementById('msg-btn');
       btn.disabled = true;
-      feedback.className = 'feedback hidden';
+      hideFeedback();
 
       try {
-        const res = await fetch('/message', {
+        const res  = await fetch('/message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
+          body: JSON.stringify({ text, region, eventId }),
         });
-
         const data = await res.json();
 
         if (res.ok) {
-          feedback.textContent = 'Message sent! Watch it appear on the wall!';
-          feedback.className = 'feedback success';
-          input.value = '';
-          countEl.textContent = '0 / 200';
-          countEl.className = 'char-count';
+          showFeedback('Message sent! Watch it appear on the wall! 🎉', 'success');
+          input.value           = '';
+          countEl.textContent   = '0 / 200';
+          countEl.className     = 'char-count';
           setTimeout(() => { btn.disabled = false; }, 800);
         } else {
-          feedback.textContent = data.error || 'Failed to send. Please try again.';
-          feedback.className = 'feedback error';
+          showFeedback(data.error || 'Failed to send. Please try again.', 'error');
           btn.disabled = false;
         }
       } catch {
-        feedback.textContent = 'Failed to send. Please try again.';
-        feedback.className = 'feedback error';
+        showFeedback('Network error. Please try again.', 'error');
         btn.disabled = false;
       }
     }
 
-    btn.addEventListener('click', sendMessage);
-
-    input.addEventListener('keydown', (e) => {
+    input.addEventListener('keydown', e => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendMessage();
     });
+
+    // ── Photo ─────────────────────────────────────────────────
+    function handleFile(file) {
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showFeedback('Please choose an image file', 'error'); return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showFeedback('Photo must be under 10MB', 'error'); return;
+      }
+      selectedFile = file;
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('photo-preview').src = e.target.result;
+        document.getElementById('photo-preview-wrap').style.display = 'block';
+        document.getElementById('drop-zone').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removePhoto() {
+      selectedFile = null;
+      document.getElementById('photo-preview-wrap').style.display = 'none';
+      document.getElementById('drop-zone').style.display = 'block';
+      document.getElementById('photo-input').value = '';
+    }
+
+    function setDuration(sec, el) {
+      duration = sec;
+      document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // Drag and drop
+    const dropZone = document.getElementById('drop-zone');
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    async function sendPhoto() {
+      if (!selectedFile) { showFeedback('Please choose a photo first', 'error'); return; }
+
+      const btn     = document.getElementById('photo-btn');
+      const caption = document.getElementById('photo-caption').value.trim();
+      const name    = document.getElementById('photo-name').value.trim();
+
+      btn.disabled = true;
+      hideFeedback();
+      showProgress(0, 'Preparing upload...');
+
+      try {
+        const formData = new FormData();
+        formData.append('photo',       selectedFile);
+        formData.append('caption',     caption);
+        formData.append('name',        name);
+        formData.append('durationSec', duration);
+        formData.append('region',      region);
+        if (eventId) formData.append('eventId', eventId);
+
+        // Use XMLHttpRequest for upload progress
+        const result = await uploadWithProgress(formData);
+
+        hideProgress();
+        showFeedback(`Photo added to queue! Position: ${result.position} 📷`, 'success');
+        removePhoto();
+        document.getElementById('photo-caption').value = '';
+        document.getElementById('photo-name').value    = '';
+        setTimeout(() => { btn.disabled = false; }, 1500);
+      } catch (err) {
+        hideProgress();
+        showFeedback(err.message || 'Upload failed. Please try again.', 'error');
+        btn.disabled = false;
+      }
+    }
+
+    function uploadWithProgress(formData) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', e => {
+          if (e.lengthComputable) {
+            const pct = Math.round(e.loaded / e.total * 100);
+            showProgress(pct, `Uploading... ${pct}%`);
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch { reject(new Error('Invalid response')); }
+          } else {
+            try {
+              const err = JSON.parse(xhr.responseText);
+              reject(new Error(err.error || 'Upload failed'));
+            } catch {
+              reject(new Error('Upload failed'));
+            }
+          }
+        });
+
+        xhr.addEventListener('error', () => reject(new Error('Network error')));
+        xhr.open('POST', '/photos/upload');
+        xhr.send(formData);
+      });
+    }
+
+    // ── Progress ──────────────────────────────────────────────
+    function showProgress(pct, label) {
+      document.getElementById('progress-wrap').classList.add('show');
+      document.getElementById('progress-fill').style.width  = `${pct}%`;
+      document.getElementById('progress-label').textContent = label;
+    }
+
+    function hideProgress() {
+      document.getElementById('progress-wrap').classList.remove('show');
+    }
+
+    // ── Feedback ──────────────────────────────────────────────
+    function showFeedback(msg, type) {
+      const el = document.getElementById('feedback');
+      el.textContent = msg;
+      el.className   = `feedback show ${type}`;
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedback').className = 'feedback';
+    }
+
+    // ── Init ──────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', loadEventName);
   </script>
 </body>
 </html>

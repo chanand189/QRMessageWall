@@ -9,6 +9,7 @@ const cookieParser = require('cookie-parser');
 const { authenticate, requireRole } = require('./src/middleware/auth');
 const authRoutes    = require('./src/routes/auth');
 const messageRoutes = require('./src/routes/messages');
+const photoRoutes   = require('./src/routes/photos');
 const eventRoutes   = require('./src/routes/events');
 const { getActiveEvent } = require('./src/services/eventService');
 const { getVisibleMessages } = require('./src/services/messageService');
@@ -48,6 +49,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/auth',   authRoutes);
 app.use('/',       messageRoutes);
 app.use('/events', eventRoutes);
+app.use('/photos', photoRoutes);
 
 // ── Pages ────────────────────────────────────────────────────
 app.get('/login', (req, res) =>

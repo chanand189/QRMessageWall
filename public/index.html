@@ -295,6 +295,13 @@
     </div>
   </div>
 
+  <!-- PHOTO OVERLAY -->
+  <div id="photo-overlay" style="display:none;opacity:0;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:200;align-items:center;justify-content:center;flex-direction:column;transition:opacity 0.5s ease;">
+    <img id="photo-img" src="" alt="" style="max-width:85vw;max-height:80vh;border-radius:16px;box-shadow:0 0 60px rgba(255,255,255,0.15);object-fit:contain;"/>
+    <div id="photo-caption-text" style="color:rgba(255,255,255,0.8);font-size:1.1rem;font-weight:600;margin-top:16px;text-align:center;max-width:70vw;display:none;"></div>
+    <div id="photo-timer" style="position:absolute;top:20px;right:24px;color:rgba(255,255,255,0.3);font-size:1.5rem;font-weight:700;"></div>
+  </div>
+
   <!-- MOD HINT (top-right, only for logged-in mods) -->
   <div id="mod-hint" onclick="toggleModMode()" title="Toggle moderator controls">🛡 Mod Controls</div>
 
@@ -535,7 +542,83 @@
       });
     });
 
-    // ── QR + event name ───────────────────────────────────────
+    // ── Photo slideshow ───────────────────────────────────────
+    let photoTimerRunning = false;
+
+    async function startPhotoTimer() {
+      if (photoTimerRunning) return;
+      photoTimerRunning = true;
+      checkNextPhoto();
+    }
+
+    async function checkNextPhoto() {
+      if (!photoTimerRunning) return;
+      try {
+        const res  = await fetch(`/photos/next?region=us`);
+        const data = await res.json();
+
+        if (data.photo) {
+          await displayPhoto(data.photo);
+        } else {
+          // No photos queued — check again in 3 seconds
+          setTimeout(checkNextPhoto, 3000);
+        }
+      } catch {
+        setTimeout(checkNextPhoto, 5000);
+      }
+    }
+
+    async function displayPhoto(photo) {
+      return new Promise(resolve => {
+        const overlay = document.getElementById('photo-overlay');
+        const img     = document.getElementById('photo-img');
+        const caption = document.getElementById('photo-caption-text');
+        const timer   = document.getElementById('photo-timer');
+
+        img.src = photo.storageUrl;
+        caption.textContent = photo.caption || '';
+        caption.style.display = photo.caption ? 'block' : 'none';
+
+        overlay.style.display = 'flex';
+        void overlay.offsetHeight;
+        overlay.style.opacity = '1';
+
+        // Countdown timer
+        const dur    = (photo.durationSec || 4) * 1000;
+        const start  = Date.now();
+        const tick   = setInterval(() => {
+          const remaining = Math.ceil((dur - (Date.now() - start)) / 1000);
+          timer.textContent = remaining > 0 ? remaining : '';
+        }, 200);
+
+        setTimeout(async () => {
+          clearInterval(tick);
+          overlay.style.opacity = '0';
+          setTimeout(async () => {
+            overlay.style.display = 'none';
+            img.src = '';
+
+            // Mark as displayed — deletes from R2
+            try {
+              await fetch(`/photos/${photo.id}/displayed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ region: 'us' }),
+              });
+            } catch {}
+
+            resolve();
+            checkNextPhoto();
+          }, 500);
+        }, dur);
+      });
+    }
+
+    // Start photo timer on load
+    startPhotoTimer();
+
+    // When a new photo is queued, start the timer if not running
+    socket.on('photo-queued', () => startPhotoTimer());
     async function loadQR() {
       try {
         const res  = await fetch('/qrcode');
