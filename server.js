@@ -11,6 +11,7 @@ const authRoutes    = require('./src/routes/auth');
 const messageRoutes = require('./src/routes/messages');
 const photoRoutes   = require('./src/routes/photos');
 const reviewRoutes  = require('./src/routes/review');
+const userRoutes    = require('./src/routes/users');
 const eventRoutes   = require('./src/routes/events');
 const { getActiveEvent } = require('./src/services/eventService');
 const { getVisibleMessages } = require('./src/services/messageService');
@@ -52,6 +53,7 @@ app.use('/',       messageRoutes);
 app.use('/events', eventRoutes);
 app.use('/photos', photoRoutes);
 app.use('/review', reviewRoutes);
+app.use('/users',  userRoutes);
 
 // ── Pages ────────────────────────────────────────────────────
 app.get('/login', (req, res) =>

@@ -643,6 +643,34 @@
 
 </main>
 
+<!-- ── CREATE USER MODAL ── -->
+<div class="modal-overlay" id="modal-create-user">
+  <div class="modal">
+    <h3>Add New User</h3>
+    <p>Create a moderator or viewer account.</p>
+    <div class="form-field">
+      <label>Username *</label>
+      <input type="text" id="new-username" placeholder="e.g. john_mod" autocomplete="off"/>
+    </div>
+    <div class="form-field">
+      <label>Password * (min 8 characters)</label>
+      <input type="password" id="new-password" placeholder="Enter password" autocomplete="new-password"/>
+    </div>
+    <div class="form-field">
+      <label>Role</label>
+      <select id="new-role">
+        <option value="moderator" selected>🛡 Moderator</option>
+        <option value="viewer">👁 Viewer</option>
+        <option value="admin">👑 Admin</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('modal-create-user')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitCreateUser()">Create User</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── CREATE EVENT MODAL ── -->
 <div class="modal-overlay" id="modal-create-event">
   <div class="modal">
@@ -1067,13 +1095,90 @@
 
   // ── Users (admin only) ────────────────────────────────────
   async function loadUsers() {
-    // Placeholder — Phase 4 extension
-    document.getElementById('users-table-body').innerHTML =
-      '<tr><td colspan="4"><div class="empty"><div class="icon">👥</div>User management coming soon</div></td></tr>';
+    try {
+      const res   = await fetch('/users', { credentials: 'include' });
+      const users = await res.json();
+      const tbody = document.getElementById('users-table-body');
+
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="4"><div class="empty"><div class="icon">👥</div>No users yet</div></td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = users.map(u => `
+        <tr>
+          <td><strong>${escHtml(u.username)}</strong></td>
+          <td>
+            <select onchange="changeRole('${u.id}', this.value)" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:4px 8px;font-size:0.78rem;outline:none" ${u.id === user.id ? 'disabled' : ''}>
+              <option value="admin"     ${u.role === 'admin'     ? 'selected' : ''}>👑 Admin</option>
+              <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>🛡 Moderator</option>
+              <option value="viewer"    ${u.role === 'viewer'    ? 'selected' : ''}>👁 Viewer</option>
+            </select>
+          </td>
+          <td>${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}</td>
+          <td>
+            ${u.id !== user.id
+              ? `<button class="action-link red" onclick="deleteUser('${u.id}', '${escHtml(u.username)}')">Delete</button>`
+              : '<span style="font-size:0.75rem;color:var(--text3)">You</span>'}
+          </td>
+        </tr>`).join('');
+    } catch (err) {
+      console.error('Load users error:', err);
+    }
   }
 
   function openCreateUser() {
-    toast('User management coming in next update', 'info');
+    document.getElementById('modal-create-user').classList.add('show');
+    setTimeout(() => document.getElementById('new-username').focus(), 100);
+  }
+
+  async function submitCreateUser() {
+    const username = document.getElementById('new-username').value.trim();
+    const password = document.getElementById('new-password').value;
+    const role     = document.getElementById('new-role').value;
+
+    if (!username || !password) { toast('Username and password required', 'error'); return; }
+    if (password.length < 8)    { toast('Password must be at least 8 characters', 'error'); return; }
+
+    try {
+      const res  = await fetch('/users', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Failed to create user', 'error'); return; }
+
+      closeModal('modal-create-user');
+      document.getElementById('new-username').value = '';
+      document.getElementById('new-password').value = '';
+      toast(`User "${username}" created as ${role}`, 'success');
+      loadUsers();
+    } catch { toast('Network error', 'error'); }
+  }
+
+  async function changeRole(id, role) {
+    try {
+      const res  = await fetch(`/users/${id}/role`, {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Failed to update role', 'error'); loadUsers(); return; }
+      toast(`Role updated to ${role}`, 'success');
+    } catch { toast('Network error', 'error'); }
+  }
+
+  async function deleteUser(id, username) {
+    if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/users/${id}`, { method: 'DELETE', credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Failed to delete', 'error'); return; }
+      toast(`User "${username}" deleted`, 'success');
+      loadUsers();
+    } catch { toast('Network error', 'error'); }
   }
 
   // ── Auth ──────────────────────────────────────────────────
