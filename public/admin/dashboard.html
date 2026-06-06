@@ -720,6 +720,21 @@
   </div>
 </div>
 
+<!-- REVIEW TOAST -->
+<div id="review-toast" style="position:fixed;top:24px;right:24px;background:var(--bg2);border:1px solid rgba(245,166,35,0.4);border-radius:14px;padding:16px 18px;max-width:340px;z-index:300;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:none">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <span style="font-size:1rem">⚠️</span>
+    <span style="font-size:0.82rem;font-weight:700;color:var(--amber)">Message needs review</span>
+  </div>
+  <div id="review-toast-text" style="font-size:0.85rem;color:var(--text);margin-bottom:4px;line-height:1.4"></div>
+  <div id="review-toast-reason" style="font-size:0.72rem;color:var(--text2);margin-bottom:12px"></div>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-teal" style="flex:1;font-size:0.78rem" onclick="approveReviewMsg()">✓ Approve & Post</button>
+    <button class="btn btn-ghost" style="font-size:0.78rem" onclick="dismissReviewMsg()">Dismiss</button>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
 <!-- TOAST -->
 <div id="toast"></div>
 
@@ -1198,6 +1213,34 @@
       if (e.target === overlay) overlay.classList.remove('show');
     });
   });
+
+  // ── Review queue notifications ────────────────────────────
+  const socket = io();
+  socket.on('message-needs-review', (msg) => {
+    showReviewToast(msg);
+  });
+
+  function showReviewToast(msg) {
+    const el = document.getElementById('review-toast');
+    document.getElementById('review-toast-text').textContent = `"${msg.text.slice(0, 60)}${msg.text.length > 60 ? '...' : ''}"`;
+    document.getElementById('review-toast-reason').textContent = `Flagged: ${msg.categories?.join(', ') || msg.reason || 'needs review'}`;
+    el.dataset.msgId = msg.id;
+    el.style.display = 'block';
+  }
+
+  async function approveReviewMsg() {
+    const id = document.getElementById('review-toast').dataset.msgId;
+    if (!id) return;
+    try {
+      await fetch(`/messages/${id}/approve`, { method: 'POST', credentials: 'include' });
+      toast('Message approved and posted to wall', 'success');
+    } catch { toast('Failed to approve', 'error'); }
+    document.getElementById('review-toast').style.display = 'none';
+  }
+
+  function dismissReviewMsg() {
+    document.getElementById('review-toast').style.display = 'none';
+  }
 
   // ── Toast ─────────────────────────────────────────────────
   let toastTimer;

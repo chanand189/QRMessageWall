@@ -12,14 +12,14 @@ function hashIp(ip) {
 }
 
 // Save a new message to DB and return it
-async function saveMessage({ content, eventId, region, ip }) {
+async function saveMessage({ content, eventId, region, ip, isVisible = true }) {
   const db = getDb(region);
   const msg = await db.message.create({
     data: {
       content,
       eventId,
       ipHash:    ip ? hashIp(ip) : null,
-      isVisible: true,
+      isVisible,
     },
   });
   return { id: msg.id, text: msg.content, timestamp: msg.createdAt.getTime() };

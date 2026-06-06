@@ -8,44 +8,16 @@
 //  DELETE /messages         — delete selected (moderator+)
 //  GET    /history          — full event history (moderator+)
 // ─────────────────────────────────────────────────────────────
-const express     = require('express');
-const leoProfanity = require('leo-profanity');
+const express      = require('express');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { getActiveEvent }            = require('../services/eventService');
+const { getActiveEvent }   = require('../services/eventService');
+const { moderateMessage }  = require('../services/moderationService');
 const {
   saveMessage, getVisibleMessages, deleteMessages,
   clearMessages, trimMessages, autoSlide, getHistory,
 } = require('../services/messageService');
 
 const router = express.Router();
-
-// Content moderation patterns (kept here for route use)
-const NEGATIVE_PATTERNS = [
-  /\bkill\s*(your|ur)\s*self\b/i, /\bkys\b/i, /\bgo\s*(die|hang)\b/i,
-  /\byou\s*(are|r|'re)\s*(worthless|pathetic|disgusting|ugly|stupid|a\s*loser|trash|garbage|nothing|a\s*waste)\b/i,
-  /\bno\s*one\s*(likes|loves|wants|cares\s*about)\s*you\b/i,
-  /\byou\s*should\s*(die|not\s*exist|disappear|end\s*it)\b/i,
-  /\bI\s*hate\s*(you|everyone|all\s*of\s*you)\b/i,
-  /\bdie\s*(slow|painfully|already)\b/i,
-  /\b(loser|idiot|moron|imbecile|scum|vermin|freak)\b/i,
-  /\bshame\s*on\s*you\b/i, /\byou\s*(deserve|deserved)\s*it\b/i,
-];
-const HARMFUL_PATTERNS = [
-  /\b(i('ll|\s*will|\s*am\s*going\s*to)|gonna)\s*(kill|shoot|stab|bomb|attack|hurt|murder)\b/i,
-  /\b(bomb|explosive|grenade)\s*(threat|attack|you|this\s*place)\b/i,
-  /\b(shoot|gun|knife)\s*(you|everyone|them|him|her)\b/i,
-  /\bself[\s-]?harm\b/i, /\bcut\s*(yourself|myself|my\s*wrist)\b/i,
-  /\b(suicide|suicidal)\b/i, /\bend\s*(my|your|their)\s*life\b/i,
-  /\b(buy|sell|deal|score)\s*(drugs|meth|cocaine|heroin|fentanyl)\b/i,
-  /\bhow\s*to\s*(make\s*a\s*(bomb|weapon)|buy\s*(guns|drugs))\b/i,
-];
-
-function moderateMessage(text) {
-  if (leoProfanity.check(text)) return { blocked: true, reason: 'Message contains profanity or abusive language.' };
-  for (const p of NEGATIVE_PATTERNS) if (p.test(text)) return { blocked: true, reason: 'Message contains hostile or harmful sentiments.' };
-  for (const p of HARMFUL_PATTERNS)  if (p.test(text)) return { blocked: true, reason: 'Message contains threatening or harmful content.' };
-  return { blocked: false };
-}
 
 // ── POST /message (public — QR scan) ─────────────────────────
 router.post('/message', async (req, res) => {
@@ -56,10 +28,35 @@ router.post('/message', async (req, res) => {
 
     if (!text) return res.status(400).json({ error: 'Empty message' });
 
-    const verdict = moderateMessage(text);
-    if (verdict.blocked) return res.status(400).json({ error: verdict.reason });
+    // AI moderation
+    const verdict = await moderateMessage(text);
 
-    // Resolve event — use eventId from body or fall back to active event
+    if (verdict.blocked) {
+      return res.status(400).json({ error: verdict.reason });
+    }
+
+    // REVIEW — save but mark not visible, notify moderators
+    if (verdict.review) {
+      const active = eventId ? null : await getActiveEvent(region);
+      const resolvedEventId = eventId || active?.id;
+      if (!resolvedEventId) return res.status(400).json({ error: 'No active event.' });
+
+      const ip  = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+      const msg = await saveMessage({ content: text, eventId: resolvedEventId, region, ip, isVisible: false });
+
+      // Notify moderators only (not viewers)
+      req.io.emit('message-needs-review', {
+        id:         msg.id,
+        text:       text,
+        reason:     verdict.reason,
+        categories: verdict.categories,
+        severity:   verdict.severity,
+      });
+
+      return res.json({ ok: true, status: 'review', message: 'Your message is being reviewed before appearing on the wall.' });
+    }
+
+    // ALLOW — resolve event and post
     let resolvedEventId = eventId;
     if (!resolvedEventId) {
       const active = await getActiveEvent(region);
@@ -81,10 +78,29 @@ router.post('/message', async (req, res) => {
     }
 
     req.io.emit('new-message', msg);
-    res.json({ ok: true });
+    res.json({ ok: true, status: 'posted' });
   } catch (err) {
     console.error('Post message error:', err);
     res.status(500).json({ error: 'Failed to post message' });
+  }
+});
+
+// ── POST /messages/:id/approve (moderator+) ──────────────────
+router.post('/messages/:id/approve', authenticate, requireRole('moderator', 'admin'), async (req, res) => {
+  try {
+    const region = req.user.region;
+    const { getDb } = require('../lib/prisma');
+    const db = getDb(region);
+    const msg = await db.message.update({
+      where: { id: req.params.id },
+      data:  { isVisible: true },
+    });
+    const formatted = { id: msg.id, text: msg.content, timestamp: msg.createdAt.getTime() };
+    req.io.emit('new-message', formatted);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Approve error:', err);
+    res.status(500).json({ error: 'Failed to approve message' });
   }
 });
 
