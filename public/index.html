@@ -151,58 +151,110 @@
     /* ══════════════════════════════════
        THEME: PILLS
     ══════════════════════════════════ */
-    body.theme-pills { background: #ffffff; color: #1a1a1a; }
-    body.theme-pills #left-panel { border-right: 1.5px solid #f0f0f0; background: #fafafa; }
-    body.theme-pills #qr-label  { color: #1a1a1a; }
-    body.theme-pills #event-name{ color: #888; }
-    body.theme-pills #qr-img    { box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid #eee; }
+    body.theme-pills { background: #f7f7f7; color: #1a1a1a; }
+    body.theme-pills #left-panel { border-right: 1.5px solid #efefef; background: #fafafa; }
+    body.theme-pills #qr-label   { color: #1a1a1a; }
+    body.theme-pills #event-name { color: #888; }
+    body.theme-pills #qr-img     { box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid #eee; }
 
     #pills-container {
       display: none;
       position: absolute; inset: 0;
-      background: #ffffff;
       overflow: hidden;
-      padding: 20px 24px;
-      align-content: flex-start;
-      gap: 14px 12px;
-      flex-wrap: wrap;
-      align-items: flex-start;
+      background: #f7f7f7;
     }
-    body.theme-pills #pills-container { display: flex; }
+    body.theme-pills #pills-container { display: block; }
 
-    /* Pill card */
-    .pill-card {
-      display: inline-flex;
-      align-items: center;
-      padding: 10px 22px;
+    /* ── Growing circle ── */
+    #pills-circle {
+      position: absolute;
+      border-radius: 50%;
+      background: #fff;
+      border: 2.5px solid #ebebeb;
+      box-shadow: 0 0 0 6px rgba(100,100,255,0.04), 0 8px 40px rgba(0,0,0,0.07);
+      transition: width 0.8s cubic-bezier(0.34,1.56,0.64,1),
+                  height 0.8s cubic-bezier(0.34,1.56,0.64,1),
+                  left 0.8s cubic-bezier(0.34,1.56,0.64,1),
+                  top 0.8s cubic-bezier(0.34,1.56,0.64,1);
+      overflow: hidden;
+    }
+
+    /* ── Center spotlight ── */
+    #pills-spotlight {
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%) scale(0.6);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 20;
+      text-align: center;
+      white-space: nowrap;
+      max-width: 80%;
+      padding: 16px 32px;
       border-radius: 999px;
       background: #fff;
-      border: 1.5px solid #ebebeb;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 0 transparent;
-      font-size: clamp(0.88rem, 1.5vw, 1.15rem);
+      border: 2px solid #ebebeb;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 0 0 4px rgba(100,100,255,0.1);
+      font-size: clamp(1.2rem, 2.5vw, 2rem);
+      font-weight: 800;
+      transition: none;
+    }
+
+    #pills-spotlight.appear {
+      animation: pill-spotlight-in 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+
+    #pills-spotlight.depart {
+      animation: pill-spotlight-out 0.45s ease-in forwards;
+    }
+
+    @keyframes pill-spotlight-in {
+      0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.55); }
+      60%  { opacity: 1; transform: translate(-50%,-50%) scale(1.06); }
+      100% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    }
+
+    @keyframes pill-spotlight-out {
+      0%   { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%,-50%) scale(0.7); }
+    }
+
+    /* ── Orbiting pill cards inside circle ── */
+    .pill-card {
+      position: absolute;
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1.5px solid #e8e8e8;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      font-size: clamp(0.78rem, 1.3vw, 1rem);
       font-weight: 700;
       white-space: nowrap;
-      max-width: calc(100% - 8px);
-      overflow: hidden;
       pointer-events: none;
-      transition: transform 0.2s ease;
-      flex-shrink: 0;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 0.4s ease;
     }
 
-    /* Newest pill gets a larger size + subtle highlight ring */
-    .pill-card.pill-latest {
-      font-size: clamp(1.1rem, 2vw, 1.5rem);
-      padding: 14px 30px;
-      border-color: transparent;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.1), 0 0 0 2.5px rgba(100,100,255,0.15);
+    .pill-card.pill-visible { opacity: 1; }
+
+    @keyframes pill-land {
+      0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.5); }
+      70%  { opacity: 1; transform: translate(-50%,-50%) scale(1.08); }
+      100% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
     }
 
-    /* Multicolour letters */
+    .pill-card.pill-landing {
+      animation: pill-land 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+
     .pill-letter { display: inline-block; }
 
-    .pill-card.mod-mode   { pointer-events: all; cursor: pointer; }
-    .pill-card.mod-mode:hover { transform: scale(1.03); box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
-    .pill-card.selected-msg { box-shadow: 0 0 0 3px #ff5555; border-color: transparent; }
+    .pill-card.mod-mode    { pointer-events: all; cursor: pointer; }
+    .pill-card.mod-mode:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.14); z-index: 5; }
+    .pill-card.selected-msg{ box-shadow: 0 0 0 3px #ff5555; }
     #photo-overlay {
       display: none; opacity: 0; position: fixed; inset: 0;
       background: rgba(0,0,0,0.92); z-index: 200;
@@ -311,7 +363,11 @@
     <div id="sticky-container"></div>
 
     <!-- PILLS -->
-    <div id="pills-container"></div>
+    <div id="pills-container">
+      <div id="pills-circle">
+        <div id="pills-spotlight"></div>
+      </div>
+    </div>
 
   </div>
 
@@ -443,11 +499,17 @@
     // ── PILLS ─────────────────────────────────────────────────
     const LETTER_COLORS = [
       '#4d96ff','#ff6b6b','#1db887','#f5a623','#c77dff',
-      '#ff6fd8','#ffd93d','#48dbfb','#ff9f43','#6bcb77',
+      '#ff6fd8','#e67e22','#1abc9c','#e74c3c','#9b59b6',
     ];
 
+    // Min/max circle size — grows with message count
+    const CIRCLE_MIN = 180;
+    const CIRCLE_MAX_RATIO = 0.88; // max 88% of container height
+
+    let pillsSpotlightBusy  = false;
+    let pillsSpotlightQueue = [];
+
     function colorizeText(text) {
-      // Every letter gets a colour from the palette, spaces stay plain
       return text.split('').map((ch, i) => {
         if (ch === ' ') return '<span class="pill-letter">&nbsp;</span>';
         const color = LETTER_COLORS[i % LETTER_COLORS.length];
@@ -455,23 +517,164 @@
       }).join('');
     }
 
-    function renderPills() {
+    function getCircleSize(count) {
       const container = document.getElementById('pills-container');
-      container.querySelectorAll('.pill-card').forEach(e => e.remove());
-      if (!messages.length) return;
+      const H = container.offsetHeight || 600;
+      const maxSize = H * CIRCLE_MAX_RATIO;
+      // Grows from CIRCLE_MIN → maxSize as count goes 0 → 30
+      const t = Math.min(count / 28, 1);
+      return Math.round(CIRCLE_MIN + (maxSize - CIRCLE_MIN) * t);
+    }
 
-      // Latest message first (top), older below — no overlapping since flex-wrap handles layout
-      const ordered = [...messages].reverse(); // newest first
+    function updateCircle(count) {
+      const container = document.getElementById('pills-container');
+      const circle    = document.getElementById('pills-circle');
+      const W = container.offsetWidth  || 800;
+      const H = container.offsetHeight || 600;
+      const size = getCircleSize(count);
+      circle.style.width  = size + 'px';
+      circle.style.height = size + 'px';
+      circle.style.left   = (W / 2 - size / 2) + 'px';
+      circle.style.top    = (H / 2 - size / 2) + 'px';
+    }
 
-      ordered.forEach((msg, i) => {
-        const el = document.createElement('div');
-        el.classList.add('pill-card');
-        if (i === 0) el.classList.add('pill-latest');
-        el.dataset.id  = msg.id;
-        el.innerHTML   = colorizeText(msg.text);
-        if (selectMode) { el.classList.add('mod-mode'); el.addEventListener('click', toggleMsgSelect); }
-        container.appendChild(el);
-      });
+    // Generate non-overlapping positions inside the circle
+    function getPillPositions(msgs) {
+      const circle  = document.getElementById('pills-circle');
+      const size    = circle.offsetWidth || getCircleSize(msgs.length);
+      const R       = size / 2;
+      const padding = 28; // distance from edge
+      const positions = [];
+      const placed    = [];
+
+      // Spiral-out placement — start near center, spiral outward
+      const total = msgs.length;
+      for (let i = 0; i < total; i++) {
+        const msg       = msgs[i];
+        const textLen   = msg.text.length;
+        const pillW     = Math.min(textLen * 11 + 40, size * 0.7);
+        const pillH     = 36;
+        const safeR     = R - padding;
+
+        // Try spiral positions
+        let placed_ok = false;
+        const goldenAngle = 2.399; // golden angle in radians
+        const spiralStep  = safeR / Math.max(total, 1);
+
+        for (let attempt = 0; attempt < 60; attempt++) {
+          const angle    = i * goldenAngle + attempt * 0.5;
+          const radius   = Math.min(spiralStep * i * 0.55 + attempt * 4, safeR - pillW / 2);
+          const cx       = R + radius * Math.cos(angle);
+          const cy       = R + radius * Math.sin(angle);
+
+          // Check inside circle
+          const distEdge = Math.sqrt(Math.pow(cx - R, 2) + Math.pow(cy - R, 2));
+          if (distEdge + pillW / 2 > safeR) continue;
+
+          // Check no overlap with placed pills
+          let overlaps = false;
+          for (const p of placed) {
+            const dx = Math.abs(cx - p.x);
+            const dy = Math.abs(cy - p.y);
+            if (dx < (pillW / 2 + p.w / 2 + 10) && dy < (pillH + 8)) {
+              overlaps = true; break;
+            }
+          }
+          if (!overlaps) {
+            positions.push({ x: cx, y: cy });
+            placed.push({ x: cx, y: cy, w: pillW });
+            placed_ok = true;
+            break;
+          }
+        }
+
+        if (!placed_ok) {
+          // Fallback — place on a ring
+          const angle = (i / total) * Math.PI * 2;
+          const radius = safeR * 0.7;
+          positions.push({ x: R + radius * Math.cos(angle), y: R + radius * Math.sin(angle) });
+          placed.push({ x: R, y: R, w: pillW });
+        }
+      }
+      return positions;
+    }
+
+    function renderPills() {
+      const circle = document.getElementById('pills-circle');
+      circle.querySelectorAll('.pill-card').forEach(e => e.remove());
+      if (!messages.length) { updateCircle(0); return; }
+
+      updateCircle(messages.length);
+
+      // Wait for circle resize then place pills
+      setTimeout(() => {
+        const positions = getPillPositions(messages);
+        messages.forEach((msg, i) => {
+          const el = document.createElement('div');
+          el.classList.add('pill-card', 'pill-visible');
+          el.dataset.id  = msg.id;
+          el.innerHTML   = colorizeText(msg.text);
+          const pos = positions[i] || { x: circle.offsetWidth / 2, y: circle.offsetHeight / 2 };
+          el.style.left  = pos.x + 'px';
+          el.style.top   = pos.y + 'px';
+          if (selectMode) { el.classList.add('mod-mode'); el.addEventListener('click', toggleMsgSelect); }
+          circle.appendChild(el);
+        });
+      }, 50);
+    }
+
+    // Spotlight a new pill in center, then animate it to its position in the circle
+    function pillsSpotlightNew(msg) {
+      pillsSpotlightQueue.push(msg);
+      processPillsSpotlight();
+    }
+
+    function processPillsSpotlight() {
+      if (pillsSpotlightBusy || !pillsSpotlightQueue.length) return;
+      pillsSpotlightBusy = true;
+      const msg      = pillsSpotlightQueue.shift();
+      const spotlight = document.getElementById('pills-spotlight');
+
+      // Show in center
+      spotlight.innerHTML = colorizeText(msg.text);
+      spotlight.classList.remove('depart');
+      spotlight.classList.add('appear');
+
+      // After 1.8s — depart and land in circle
+      setTimeout(() => {
+        spotlight.classList.remove('appear');
+        spotlight.classList.add('depart');
+
+        setTimeout(() => {
+          spotlight.classList.remove('depart');
+          // Now render updated message list with landing animation on newest
+          updateCircle(messages.length);
+          setTimeout(() => {
+            const circle    = document.getElementById('pills-circle');
+            circle.querySelectorAll('.pill-card').forEach(e => e.remove());
+            const positions = getPillPositions(messages);
+            messages.forEach((m, i) => {
+              const el = document.createElement('div');
+              el.classList.add('pill-card');
+              el.dataset.id  = m.id;
+              el.innerHTML   = colorizeText(m.text);
+              const pos = positions[i] || { x: circle.offsetWidth / 2, y: circle.offsetHeight / 2 };
+              el.style.left  = pos.x + 'px';
+              el.style.top   = pos.y + 'px';
+              // Only newest gets landing animation
+              if (m.id === msg.id) {
+                el.classList.add('pill-landing');
+              } else {
+                el.classList.add('pill-visible');
+              }
+              if (selectMode) { el.classList.add('mod-mode'); el.addEventListener('click', toggleMsgSelect); }
+              circle.appendChild(el);
+            });
+            pillsSpotlightBusy = false;
+            processPillsSpotlight();
+          }, 60);
+        }, 450);
+      }, 1800);
     }
 
     // ── COSMIC ────────────────────────────────────────────────
@@ -610,6 +813,8 @@
       if (currentTheme === 'cosmic') {
         spotlightQueue.push(msg);
         processQueue();
+      } else if (currentTheme === 'pills') {
+        pillsSpotlightNew(msg);
       } else {
         renderAll();
       }
@@ -799,7 +1004,10 @@
     }
 
     window.addEventListener('DOMContentLoaded', loadInit);
-    window.addEventListener('resize', () => { if (currentTheme === 'sticky') renderSticky(); });
+    window.addEventListener('resize', () => {
+      if (currentTheme === 'sticky') renderSticky();
+      if (currentTheme === 'pills')  renderPills();
+    });
   </script>
 </body>
 </html>
