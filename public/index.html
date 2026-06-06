@@ -149,8 +149,60 @@
     .sn-rose    { background: #fda4af; color: #4B1528; }
 
     /* ══════════════════════════════════
-       PHOTO OVERLAY
+       THEME: PILLS
     ══════════════════════════════════ */
+    body.theme-pills { background: #ffffff; color: #1a1a1a; }
+    body.theme-pills #left-panel { border-right: 1.5px solid #f0f0f0; background: #fafafa; }
+    body.theme-pills #qr-label  { color: #1a1a1a; }
+    body.theme-pills #event-name{ color: #888; }
+    body.theme-pills #qr-img    { box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid #eee; }
+
+    #pills-container {
+      display: none;
+      position: absolute; inset: 0;
+      background: #ffffff;
+      overflow: hidden;
+      padding: 20px 24px;
+      align-content: flex-start;
+      gap: 14px 12px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+    body.theme-pills #pills-container { display: flex; }
+
+    /* Pill card */
+    .pill-card {
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 22px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1.5px solid #ebebeb;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 0 transparent;
+      font-size: clamp(0.88rem, 1.5vw, 1.15rem);
+      font-weight: 700;
+      white-space: nowrap;
+      max-width: calc(100% - 8px);
+      overflow: hidden;
+      pointer-events: none;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    /* Newest pill gets a larger size + subtle highlight ring */
+    .pill-card.pill-latest {
+      font-size: clamp(1.1rem, 2vw, 1.5rem);
+      padding: 14px 30px;
+      border-color: transparent;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.1), 0 0 0 2.5px rgba(100,100,255,0.15);
+    }
+
+    /* Multicolour letters */
+    .pill-letter { display: inline-block; }
+
+    .pill-card.mod-mode   { pointer-events: all; cursor: pointer; }
+    .pill-card.mod-mode:hover { transform: scale(1.03); box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+    .pill-card.selected-msg { box-shadow: 0 0 0 3px #ff5555; border-color: transparent; }
     #photo-overlay {
       display: none; opacity: 0; position: fixed; inset: 0;
       background: rgba(0,0,0,0.92); z-index: 200;
@@ -258,6 +310,9 @@
     <!-- STICKY NOTES -->
     <div id="sticky-container"></div>
 
+    <!-- PILLS -->
+    <div id="pills-container"></div>
+
   </div>
 
   <!-- PHOTO OVERLAY -->
@@ -318,6 +373,22 @@
       </div>
       <div class="name">Sticky Notes</div>
     </div>
+    <div class="theme-card" id="tc-pills" onclick="changeTheme('pills')">
+      <div class="theme-preview-thumb" style="background:#fff;border:0.5px solid #eee;border-radius:8px;display:flex;flex-direction:column;gap:5px;padding:6px;align-items:flex-start">
+        <div style="height:10px;border-radius:999px;background:#f0f0f0;border:1px solid #e0e0e0;padding:0 8px;display:flex;align-items:center;gap:1px">
+          <span style="width:4px;height:4px;border-radius:50%;background:#4d96ff;display:inline-block"></span>
+          <span style="width:4px;height:4px;border-radius:50%;background:#ff6b6b;display:inline-block"></span>
+          <span style="width:4px;height:4px;border-radius:50%;background:#1db887;display:inline-block"></span>
+        </div>
+        <div style="height:10px;border-radius:999px;background:#f0f0f0;border:1px solid #e0e0e0;width:80%;display:flex;align-items:center;padding:0 6px;gap:1px">
+          <span style="width:4px;height:4px;border-radius:50%;background:#c77dff;display:inline-block"></span>
+          <span style="width:4px;height:4px;border-radius:50%;background:#ffd93d;display:inline-block"></span>
+          <span style="width:4px;height:4px;border-radius:50%;background:#ff9f43;display:inline-block"></span>
+        </div>
+        <div style="height:14px;border-radius:999px;background:#fff;border:1.5px solid #ddd;width:90%;box-shadow:0 2px 4px rgba(0,0,0,0.06)"></div>
+      </div>
+      <div class="name">Pills</div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -366,6 +437,41 @@
     function renderAll() {
       if (currentTheme === 'cosmic') renderCosmic();
       if (currentTheme === 'sticky') renderSticky();
+      if (currentTheme === 'pills')  renderPills();
+    }
+
+    // ── PILLS ─────────────────────────────────────────────────
+    const LETTER_COLORS = [
+      '#4d96ff','#ff6b6b','#1db887','#f5a623','#c77dff',
+      '#ff6fd8','#ffd93d','#48dbfb','#ff9f43','#6bcb77',
+    ];
+
+    function colorizeText(text) {
+      // Every letter gets a colour from the palette, spaces stay plain
+      return text.split('').map((ch, i) => {
+        if (ch === ' ') return '<span class="pill-letter">&nbsp;</span>';
+        const color = LETTER_COLORS[i % LETTER_COLORS.length];
+        return `<span class="pill-letter" style="color:${color}">${ch}</span>`;
+      }).join('');
+    }
+
+    function renderPills() {
+      const container = document.getElementById('pills-container');
+      container.querySelectorAll('.pill-card').forEach(e => e.remove());
+      if (!messages.length) return;
+
+      // Latest message first (top), older below — no overlapping since flex-wrap handles layout
+      const ordered = [...messages].reverse(); // newest first
+
+      ordered.forEach((msg, i) => {
+        const el = document.createElement('div');
+        el.classList.add('pill-card');
+        if (i === 0) el.classList.add('pill-latest');
+        el.dataset.id  = msg.id;
+        el.innerHTML   = colorizeText(msg.text);
+        if (selectMode) { el.classList.add('mod-mode'); el.addEventListener('click', toggleMsgSelect); }
+        container.appendChild(el);
+      });
     }
 
     // ── COSMIC ────────────────────────────────────────────────
@@ -521,6 +627,7 @@
       ids.forEach(id => document.querySelector(`[data-id="${id}"]`)?.remove());
       spotlightQueue = spotlightQueue.filter(m => !ids.includes(m.id));
       if (currentTheme === 'sticky') renderSticky();
+      if (currentTheme === 'pills')  renderPills();
     });
 
     socket.on('remove-messages', ids => {
@@ -528,6 +635,7 @@
       ids.forEach(id => document.querySelector(`[data-id="${id}"]`)?.remove());
       spotlightQueue = spotlightQueue.filter(m => !ids.includes(m.id));
       if (currentTheme === 'sticky') renderSticky();
+      if (currentTheme === 'pills')  renderPills();
     });
 
     socket.on('theme-changed', ({ theme }) => applyTheme(theme));
@@ -574,7 +682,7 @@
       selectMode = true;
       document.getElementById('mod-toolbar').classList.remove('visible');
       document.getElementById('mod-delete-bar').classList.add('visible');
-      document.querySelectorAll('.floating-msg, .sticky-note').forEach(el => {
+      document.querySelectorAll('.floating-msg, .sticky-note, .pill-card').forEach(el => {
         el.classList.add('mod-mode');
         el.addEventListener('click', toggleMsgSelect);
       });
@@ -584,7 +692,7 @@
       selectMode = false; selectedIds.clear();
       document.getElementById('mod-delete-bar').classList.remove('visible');
       if (modModeOn) document.getElementById('mod-toolbar').classList.add('visible');
-      document.querySelectorAll('.floating-msg, .sticky-note').forEach(el => {
+      document.querySelectorAll('.floating-msg, .sticky-note, .pill-card').forEach(el => {
         el.classList.remove('mod-mode', 'selected-msg');
         el.removeEventListener('click', toggleMsgSelect);
       });
