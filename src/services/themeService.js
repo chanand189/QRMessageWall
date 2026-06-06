@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 const { getDb } = require('../lib/prisma');
 
-const THEMES = ['cosmic', 'poster', 'neon', 'minimal'];
+const THEMES = ['cosmic', 'sticky'];
 
 async function getTheme({ eventId, region }) {
   if (!eventId) return 'cosmic';
