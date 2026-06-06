@@ -1,150 +1,209 @@
 // ─────────────────────────────────────────────────────────────
-//  AI Content Moderation Service
-//  Uses Claude API to review messages before they appear on wall
+//  Content Moderation Service — 100% local, no API key needed
 //
-//  moderateMessage(text) → { blocked, review, reason, cleaned }
+//  Detects abuse even when obfuscated via:
+//   - Spaces between letters  (f u c k)
+//   - Punctuation/symbols     (f.u.c.k  f*u*c*k)
+//   - Repeated letters        (fuuuuck)
+//   - Leetspeak               (f4ck  sh1t  @ss)
+//   - Mixed case              (FuCk)
+//   - Unicode lookalikes      (ƒuck)
 //
-//  Decision logic:
-//    ALLOW  → post immediately
-//    REVIEW → hold, notify moderators via socket
-//    BLOCK  → reject with reason shown to user
-//
-//  Falls back to basic regex if API is unavailable
+//  Returns: { blocked, review, reason, severity, categories }
 // ─────────────────────────────────────────────────────────────
 
-const MODERATION_PROMPT = `You are a content moderation engine for a public event message wall displayed on a large screen in front of an audience.
+const { Filter } = require('bad-words');
+const filter = new Filter();
 
-Task:
-Review the input message and decide whether it contains abusive, hateful, harassing, threatening, sexually explicit, self-harm, violent, spam, or otherwise unsafe language.
+// ── Step 1: Normalize text to defeat obfuscation ─────────────
+function normalize(text) {
+  let t = text.toLowerCase();
 
-Rules:
-- Be strict but fair.
-- Focus on intent, not just exact keywords.
-- Detect obfuscated abuse including spaces between letters, punctuation between letters, repeated letters, leetspeak, unicode substitutions, emojis, and misspellings.
-- Normalize the text before analysis.
-- Do not flag harmless educational, quoted, or clearly non-abusive usage.
-- If the text is borderline or unclear, choose REVIEW.
-- If clearly safe, choose ALLOW.
+  // Remove zero-width and invisible chars
+  t = t.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '');
 
-Output valid JSON only, no markdown, no explanation:
-{
-  "decision": "ALLOW" | "REVIEW" | "BLOCK",
-  "categories": [],
-  "severity": "low" | "medium" | "high",
-  "reason": "",
-  "cleaned_text": ""
-}`;
+  // Leetspeak substitutions
+  const leet = {
+    '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
+    '6': 'g', '7': 't', '8': 'b', '9': 'g',
+    '@': 'a', '$': 's', '!': 'i', '+': 't',
+    '(': 'c', ')': 'd', '|': 'i', '¡': 'i',
+    'ƒ': 'f', 'µ': 'u', '€': 'e', '£': 'l',
+    'ß': 'ss', 'ð': 'd', 'þ': 'th',
+  };
+  t = t.split('').map(c => leet[c] || c).join('');
 
-// ── AI moderation via Claude API ──────────────────────────────
-async function moderateWithAI(text) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null; // fall back to regex
+  // Remove separators between letters (f.u.c.k → fuck, f u c k → fuck)
+  // Only collapse when pattern is single-char separated by non-alphanumeric
+  t = t.replace(/\b([a-z])[^a-z0-9]{1,3}(?=[a-z]\b)/g, (_, c) => c);
+  t = t.replace(/([a-z])\s([a-z])\s([a-z])/g, '$1$2$3');
+  t = t.replace(/([a-z])\s([a-z])/g, '$1$2');
 
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method:  'POST',
-      headers: {
-        'Content-Type':      'application/json',
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model:      'claude-haiku-4-5-20251001', // fast + cheap for moderation
-        max_tokens: 256,
-        system:     MODERATION_PROMPT,
-        messages:   [{ role: 'user', content: `Input message:\n"""\n${text}\n"""` }],
-      }),
-    });
+  // Collapse repeated letters (fuuuuck → fuck, shiiit → shit)
+  t = t.replace(/(.)\1{2,}/g, '$1$1');
 
-    if (!response.ok) {
-      console.error('Moderation API error:', response.status);
-      return null;
-    }
+  // Remove remaining punctuation except spaces
+  t = t.replace(/[^a-z0-9\s]/g, ' ');
 
-    const data   = await response.json();
-    const raw    = data.content?.[0]?.text || '';
-    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
-    return parsed;
-  } catch (err) {
-    console.error('AI moderation failed, falling back to regex:', err.message);
-    return null;
-  }
+  // Collapse multiple spaces
+  t = t.replace(/\s+/g, ' ').trim();
+
+  return t;
 }
 
-// ── Regex fallback (when API unavailable) ────────────────────
-const leoProfanity = require('leo-profanity');
+// ── Step 2: Pattern categories ────────────────────────────────
 
-const NEGATIVE_PATTERNS = [
-  /\bkill\s*(your|ur)\s*self\b/i, /\bkys\b/i, /\bgo\s*(die|hang)\b/i,
-  /\byou\s*(are|r|'re)\s*(worthless|pathetic|disgusting|ugly|stupid|a\s*loser|trash|garbage|nothing|a\s*waste)\b/i,
-  /\bno\s*one\s*(likes|loves|wants|cares\s*about)\s*you\b/i,
-  /\byou\s*should\s*(die|not\s*exist|disappear|end\s*it)\b/i,
-];
+const PATTERNS = {
 
-const HARMFUL_PATTERNS = [
-  /\b(i('ll|\s*will|\s*am\s*going\s*to)|gonna)\s*(kill|shoot|stab|bomb|attack|hurt|murder)\b/i,
-  /\b(suicide|suicidal)\b/i,
-  /\bend\s*(my|your|their)\s*life\b/i,
-  /\bself[\s-]?harm\b/i,
-];
+  // ── Threats & violence ──
+  threats: [
+    /\b(i('ll|'m going to| will| am going to)|gonna|going to)\s+(kill|murder|hurt|shoot|stab|attack|beat|destroy|end)\s+(you|u|him|her|them|everyone)\b/,
+    /\b(kill|murder|hurt|shoot|stab|attack)\s+(yourself|urself|him|her|them|everyone|you)\b/,
+    /\b(bomb|blow\s*up|explode|grenade|shoot\s*up)\s*(this|the|a|an)?\s*(place|school|building|crowd|event|wall)\b/,
+    /\bdie\s+(slow|painfully|already|bitch)\b/,
+    /\bi\s+want\s+(you|him|her|them)\s+(dead|to\s+die)\b/,
+    /\byou\s+(are|r)\s+(dead|gonna\s+die)\b/,
+  ],
 
-function regexModerate(text) {
-  if (leoProfanity.check(text)) {
-    return { decision: 'BLOCK', reason: 'Message contains profanity or abusive language.', severity: 'medium', categories: ['profanity'] };
+  // ── Self-harm & suicide ──
+  selfharm: [
+    /\b(kill|hurt|harm|cut|end)\s+(my|your|ur)\s*(self|life|wrists?|existence)\b/,
+    /\b(suicide|suicidal|kms|kys)\b/,
+    /\bkill\s*(your|ur)\s*self\b/,
+    /\bend\s*(it|my\s*life|your\s*life|everything)\b/,
+    /\bwant\s+to\s+(die|end\s+it|disappear|not\s+exist)\b/,
+    /\b(self[\s-]?harm|self[\s-]?destruct)\b/,
+  ],
+
+  // ── Hate speech ──
+  hatespeech: [
+    /\b(all|those?|these?|you)\s+(blacks?|whites?|jews?|muslims?|christians?|asians?|latinos?|hispanics?|gays?|lesbians?|trans)\s+(should|must|need\s+to|deserve\s+to)\s+(die|be\s+killed|be\s+gone|disappear)\b/,
+    /\b(go\s+back\s+to|get\s+out\s+of)\s+(your|their)\s+(country|land)\b/,
+    /\b(ethnic|racial)\s+cleansing\b/,
+    /\bgenocide\b/,
+    /\b(gas|burn|hang)\s+(the|all|those?)?\s*(jews?|blacks?|gays?|muslims?)\b/,
+  ],
+
+  // ── Harassment ──
+  harassment: [
+    /\byou\s+(are|r|'re)\s+(worthless|pathetic|disgusting|ugly|stupid|trash|garbage|nothing|a\s*(piece\s+of\s+)?waste|useless|a\s*loser)\b/,
+    /\bno\s+one\s+(likes?|loves?|wants?|cares?\s*(about)?)\s+(you|u)\b/,
+    /\byou\s+should\s+(not\s+exist|disappear|be\s+dead|never\s+have\s+been\s+born)\b/,
+    /\bgo\s+(die|kill\s*yourself|hang)\b/,
+    /\bkys\b/,
+    /\b(loser|worthless|pathetic|disgusting)\s+(piece\s+of\s+)?(human|trash|garbage|crap|shit)\b/,
+  ],
+
+  // ── Sexual / explicit ──
+  sexual: [
+    /\b(send|show|give\s+me)\s+(nude|nudes|naked|pics|photos)\b/,
+    /\b(want\s+to|wanna|gonna)\s+(f+u+c+k|have\s+sex\s+with|do\s+it\s+with)\s+(you|u|her|him)\b/,
+    /\b(suck|lick|ride|bang)\s+(my|this)\s+(d+i+c+k|c+o+c+k|p+u+s+s+y|a+s+s)\b/,
+    /\bp+o+r+n\b/,
+    /\b(sex|sexual)\s+(assault|harass|abuse)\b/,
+  ],
+
+  // ── Dangerous content ──
+  dangerous: [
+    /\b(how\s+to|where\s+to|can\s+i)\s+(make|build|get|buy|obtain)\s+(a\s+)?(bomb|weapon|gun|drugs?|meth|cocaine|fentanyl)\b/,
+    /\b(buy|sell|deal|score)\s+(meth|cocaine|heroin|fentanyl|crack|weed|drugs?)\b/,
+    /\b(child|minor|kid|underage)\s+(sex|porn|nude|naked|molest|abuse)\b/,
+    /\b(cp|csam|loli)\b/,
+  ],
+
+  // ── Spam ──
+  spam: [
+    /\b(follow|subscribe|check\s+out|visit|click)\s+(my|our|this)\s+(channel|page|profile|link|website|instagram|tiktok|onlyfans)\b/,
+    /https?:\/\/\S+/,
+    /www\.\S+\.\S+/,
+    /\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/,
+    /(.)\1{4,}/, // aaaaaaa spam
+  ],
+};
+
+// Profanity — mild words that get REVIEW not BLOCK
+const REVIEW_WORDS = ['damn', 'hell', 'crap', 'ass', 'butt', 'piss', 'pee', 'fart', 'suck', 'idiot', 'stupid', 'dumb', 'moron'];
+
+// ── Step 3: Check normalized text ────────────────────────────
+function checkPatterns(normalized, original) {
+  const results = [];
+
+  for (const [category, patterns] of Object.entries(PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(normalized)) {
+        results.push(category);
+        break;
+      }
+    }
   }
-  for (const p of NEGATIVE_PATTERNS) {
-    if (p.test(text)) return { decision: 'BLOCK', reason: 'Message contains hostile or harmful sentiments.', severity: 'high', categories: ['harassment'] };
+
+  // Bad-words library (handles many variants automatically)
+  try {
+    if (filter.isProfane(normalized) || filter.isProfane(original.toLowerCase())) {
+      if (!results.includes('profanity')) results.push('profanity');
+    }
+  } catch {}
+
+  // Mild review words
+  for (const word of REVIEW_WORDS) {
+    const re = new RegExp(`\\b${word}\\b`);
+    if (re.test(normalized)) {
+      if (!results.includes('mild_language')) results.push('mild_language');
+    }
   }
-  for (const p of HARMFUL_PATTERNS) {
-    if (p.test(text)) return { decision: 'BLOCK', reason: 'Message contains threatening or harmful content.', severity: 'high', categories: ['violence'] };
+
+  return results;
+}
+
+// ── Step 4: Decision logic ────────────────────────────────────
+function decide(categories) {
+  const BLOCK_CATS = ['threats','selfharm','hatespeech','harassment','sexual','dangerous'];
+  const REVIEW_CATS = ['profanity', 'mild_language'];
+
+  for (const cat of BLOCK_CATS) {
+    if (categories.includes(cat)) return 'BLOCK';
   }
-  return { decision: 'ALLOW', reason: '', severity: 'low', categories: [] };
+  for (const cat of REVIEW_CATS) {
+    if (categories.includes(cat)) return 'REVIEW';
+  }
+  return 'ALLOW';
+}
+
+function severity(categories) {
+  if (['threats','selfharm','hatespeech','dangerous','sexual'].some(c => categories.includes(c))) return 'high';
+  if (['harassment','profanity'].some(c => categories.includes(c))) return 'medium';
+  return 'low';
+}
+
+function userReason(categories) {
+  if (categories.includes('threats'))     return 'Message contains threatening language and cannot be posted.';
+  if (categories.includes('selfharm'))    return 'Message contains sensitive content and cannot be posted.';
+  if (categories.includes('hatespeech')) return 'Message contains hateful content and cannot be posted.';
+  if (categories.includes('harassment')) return 'Message contains harassing content and cannot be posted.';
+  if (categories.includes('sexual'))     return 'Message contains inappropriate content and cannot be posted.';
+  if (categories.includes('dangerous'))  return 'Message contains unsafe content and cannot be posted.';
+  if (categories.includes('spam'))       return 'Message looks like spam and cannot be posted.';
+  if (categories.includes('profanity'))  return 'Message contains inappropriate language. Please keep it clean!';
+  return 'Message was flagged and cannot be posted.';
 }
 
 // ── Main export ───────────────────────────────────────────────
 async function moderateMessage(text) {
-  // Try AI first
-  const aiResult = await moderateWithAI(text);
+  const normalized  = normalize(text);
+  const categories  = checkPatterns(normalized, text);
+  const decision    = decide(categories);
+  const sev         = severity(categories);
 
-  if (aiResult) {
-    console.log(`[moderation] AI: ${aiResult.decision} | ${aiResult.categories?.join(',')} | "${text.slice(0, 40)}"`);
-    return {
-      blocked:  aiResult.decision === 'BLOCK',
-      review:   aiResult.decision === 'REVIEW',
-      reason:   aiResult.decision === 'BLOCK'
-                  ? userFriendlyReason(aiResult.categories)
-                  : aiResult.reason,
-      cleaned:  aiResult.cleaned_text || text,
-      severity: aiResult.severity,
-      categories: aiResult.categories || [],
-      source:   'ai',
-    };
-  }
+  console.log(`[mod] "${text.slice(0,40)}" → ${decision} [${categories.join(',')}]`);
 
-  // Regex fallback
-  const result = regexModerate(text);
-  console.log(`[moderation] regex: ${result.decision} | "${text.slice(0, 40)}"`);
   return {
-    blocked:    result.decision === 'BLOCK',
-    review:     false,
-    reason:     result.reason,
-    cleaned:    text,
-    severity:   result.severity,
-    categories: result.categories,
-    source:     'regex',
+    blocked:    decision === 'BLOCK',
+    review:     decision === 'REVIEW',
+    reason:     decision !== 'ALLOW' ? userReason(categories) : '',
+    severity:   sev,
+    categories,
+    source:     'local',
   };
-}
-
-function userFriendlyReason(categories = []) {
-  if (categories.includes('hate_speech'))    return 'Message contains hateful content and cannot be posted.';
-  if (categories.includes('threats'))        return 'Message contains threatening language and cannot be posted.';
-  if (categories.includes('sexual'))         return 'Message contains inappropriate content and cannot be posted.';
-  if (categories.includes('self_harm'))      return 'Message contains sensitive content and cannot be posted.';
-  if (categories.includes('harassment'))     return 'Message contains harassing content and cannot be posted.';
-  if (categories.includes('violence'))       return 'Message contains violent content and cannot be posted.';
-  if (categories.includes('spam'))           return 'Message looks like spam and cannot be posted.';
-  if (categories.includes('profanity'))      return 'Message contains inappropriate language and cannot be posted.';
-  return 'Message was flagged as unsafe and cannot be posted.';
 }
 
 module.exports = { moderateMessage };
