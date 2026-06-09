@@ -23,9 +23,14 @@ const server = http.createServer(app);
 const io     = new Server(server);
 const PORT   = process.env.PORT || 3000;
 
-const BASE_URL = process.env.PUBLIC_URL
-  || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
-  || `http://${getLocalIP()}:${PORT}`;
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+// In production PUBLIC_URL must be set — QR codes will be wrong without it
+if (IS_PROD && !process.env.PUBLIC_URL) {
+  console.error('ERROR: PUBLIC_URL environment variable is required in production.');
+  console.error('Set it to your Railway/Render domain, e.g. https://yourapp.up.railway.app');
+  process.exit(1);
+}
 
 function getLocalIP() {
   const nets = os.networkInterfaces();
@@ -33,6 +38,14 @@ function getLocalIP() {
     for (const net of nets[name])
       if (net.family === 'IPv4' && !net.internal) return net.address;
   return '127.0.0.1';
+}
+
+const BASE_URL = process.env.PUBLIC_URL
+  || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
+  || `http://${getLocalIP()}:${PORT}`;
+
+if (!IS_PROD) {
+  console.warn(`[dev] PUBLIC_URL not set — using ${BASE_URL} for QR codes`);
 }
 
 // ── Middleware ───────────────────────────────────────────────

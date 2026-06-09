@@ -67,18 +67,24 @@ router.post('/message', async (req, res) => {
     const ip  = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
     const msg = await saveMessage({ content: text, eventId: resolvedEventId, region, ip });
 
-    // Auto-slide if event has a wall limit
+    // Fetch event config (needed for autoSlide)
     const { getDb } = require('../lib/prisma');
     const db        = getDb(region);
-    const event     = await db.event.findUnique({ where: { id: resolvedEventId } });
+    const event     = await db.event.findUnique({
+      where:  { id: resolvedEventId },
+      select: { autoSlide: true, wallLimit: true },
+    });
 
-    if (event?.autoSlide) {
-      const hiddenIds = await autoSlide({ eventId: resolvedEventId, limit: event.wallLimit, region });
-      if (hiddenIds.length) req.io.emit('hide-messages', hiddenIds);
-    }
-
+    // Respond immediately — autoSlide runs in background
     req.io.emit('new-message', msg);
     res.json({ ok: true, status: 'posted' });
+
+    // Auto-slide in background (non-blocking — does not delay response)
+    if (event?.autoSlide) {
+      autoSlide({ eventId: resolvedEventId, limit: event.wallLimit, region })
+        .then(hiddenIds => { if (hiddenIds.length) req.io.emit('hide-messages', hiddenIds); })
+        .catch(err => console.error('autoSlide error:', err));
+    }
   } catch (err) {
     console.error('Post message error:', err);
     res.status(500).json({ error: 'Failed to post message' });

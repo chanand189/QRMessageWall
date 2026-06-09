@@ -38,21 +38,28 @@ async function getVisibleMessages({ eventId, region, limit = 50 }) {
 
 // Soft-delete selected message IDs
 async function deleteMessages({ ids, deletedById, region }) {
+  // Guard: nothing to do if ids is empty
+  if (!ids || ids.length === 0) return;
+
   const db = getDb(region);
   await db.message.updateMany({
     where: { id: { in: ids } },
     data:  { isVisible: false, deletedById, deletedAt: new Date() },
   });
 
-  // Log action
-  const eventId = (await db.message.findFirst({ where: { id: ids[0] } }))?.eventId;
-  if (eventId) {
+  // Fetch eventId from first message for audit log
+  const firstMsg = await db.message.findFirst({
+    where:  { id: { in: ids } },
+    select: { eventId: true },
+  });
+
+  if (firstMsg?.eventId) {
     await db.wallAction.create({
       data: {
         type:          'delete',
         detail:        { ids, count: ids.length },
         performedById: deletedById,
-        eventId,
+        eventId:       firstMsg.eventId,
       },
     });
   }
