@@ -703,28 +703,29 @@
 
     function renderGalaxy() {
       initGalaxy();
+      clearPlaced('galaxy');
       // Clear existing message sprites
       galaxyMsgMeshes.forEach(o => galaxyScene.remove(o.mesh));
       galaxyMsgMeshes = [];
       if (!messages.length) return;
 
-      // Place messages in 3D space — sphere distribution
+      // Fibonacci sphere — evenly distributes points, no clustering or overlap
+      const total  = messages.length;
+      const golden = Math.PI * (3 - Math.sqrt(5));
+
       messages.forEach((msg, i) => {
         const color  = GALAXY_COLORS[i % GALAXY_COLORS.length];
         const sprite = makeTextSprite(msg.text, color);
 
-        // Fibonacci sphere distribution
-        const total  = Math.max(messages.length, 1);
-        const golden = Math.PI * (3 - Math.sqrt(5));
-        const y      = 1 - (i / (total - 1 || 1)) * 2;
-        const radius = Math.sqrt(1 - y * y);
+        const y      = 1 - (i / Math.max(total - 1, 1)) * 2;
+        const radius = Math.sqrt(Math.max(0, 1 - y * y));
         const theta  = golden * i;
-        const R      = 5.5 + Math.random() * 1.5;
+        const R      = 4.5 + (i % 3) * 0.8; // vary depth slightly
 
         sprite.position.set(
           Math.cos(theta) * radius * R,
-          y * R * 0.7,
-          Math.sin(theta) * radius * R * 0.5 - 2
+          y * R * 0.65,
+          Math.sin(theta) * radius * R * 0.6 - 2
         );
 
         galaxyScene.add(sprite);
@@ -815,63 +816,46 @@
 
     // Generate non-overlapping positions inside the circle
     function getPillPositions(msgs) {
-      const circle  = document.getElementById('pills-circle');
-      const size    = circle.offsetWidth || getCircleSize(msgs.length);
-      const R       = size / 2;
-      const padding = 28; // distance from edge
-      const positions = [];
-      const placed    = [];
+      const circle = document.getElementById('pills-circle');
+      const size   = circle.offsetWidth || getCircleSize(msgs.length);
+      const R      = size / 2;
+      const GAP    = 12;
+      const placed = [];
 
-      // Spiral-out placement — start near center, spiral outward
-      const total = msgs.length;
-      for (let i = 0; i < total; i++) {
-        const msg       = msgs[i];
-        const textLen   = msg.text.length;
-        const pillW     = Math.min(textLen * 11 + 40, size * 0.7);
-        const pillH     = 36;
-        const safeR     = R - padding;
+      return msgs.map(msg => {
+        const charW = 10;
+        const pillW = Math.min(msg.text.length * charW + 40, size * 0.65);
+        const pillH = 40;
+        const safeR = R - GAP - pillW / 2;
 
-        // Try spiral positions
-        let placed_ok = false;
-        const goldenAngle = 2.399; // golden angle in radians
-        const spiralStep  = safeR / Math.max(total, 1);
+        for (let a = 0; a < 100; a++) {
+          const angle  = Math.random() * 2 * Math.PI;
+          const radius = Math.random() * safeR;
+          const cx     = R + radius * Math.cos(angle);
+          const cy     = R + radius * Math.sin(angle);
+          const x      = cx - pillW / 2;
+          const y      = cy - pillH / 2;
 
-        for (let attempt = 0; attempt < 60; attempt++) {
-          const angle    = i * goldenAngle + attempt * 0.5;
-          const radius   = Math.min(spiralStep * i * 0.55 + attempt * 4, safeR - pillW / 2);
-          const cx       = R + radius * Math.cos(angle);
-          const cy       = R + radius * Math.sin(angle);
+          // Must be inside circle
+          const corners = [[x,y],[x+pillW,y],[x,y+pillH],[x+pillW,y+pillH]];
+          const inside  = corners.every(([px,py]) => Math.sqrt((px-R)**2+(py-R)**2) < R - GAP);
+          if (!inside) continue;
 
-          // Check inside circle
-          const distEdge = Math.sqrt(Math.pow(cx - R, 2) + Math.pow(cy - R, 2));
-          if (distEdge + pillW / 2 > safeR) continue;
-
-          // Check no overlap with placed pills
-          let overlaps = false;
-          for (const p of placed) {
-            const dx = Math.abs(cx - p.x);
-            const dy = Math.abs(cy - p.y);
-            if (dx < (pillW / 2 + p.w / 2 + 10) && dy < (pillH + 8)) {
-              overlaps = true; break;
-            }
-          }
-          if (!overlaps) {
-            positions.push({ x: cx, y: cy });
-            placed.push({ x: cx, y: cy, w: pillW });
-            placed_ok = true;
-            break;
+          const box = { x1: x - GAP, y1: y - GAP, x2: x + pillW + GAP, y2: y + pillH + GAP };
+          if (!placed.some(p => p.x1 < box.x2 && p.x2 > box.x1 && p.y1 < box.y2 && p.y2 > box.y1)) {
+            placed.push({ x1: x, y1: y, x2: x + pillW, y2: y + pillH });
+            return { x: cx, y: cy };
           }
         }
 
-        if (!placed_ok) {
-          // Fallback — place on a ring
-          const angle = (i / total) * Math.PI * 2;
-          const radius = safeR * 0.7;
-          positions.push({ x: R + radius * Math.cos(angle), y: R + radius * Math.sin(angle) });
-          placed.push({ x: R, y: R, w: pillW });
-        }
-      }
-      return positions;
+        // Fallback — ring placement
+        const angle  = (placed.length / Math.max(msgs.length, 1)) * Math.PI * 2;
+        const radius = safeR * 0.65;
+        const cx     = R + radius * Math.cos(angle);
+        const cy     = R + radius * Math.sin(angle);
+        placed.push({ x1: cx - pillW/2, y1: cy - pillH/2, x2: cx + pillW/2, y2: cy + pillH/2 });
+        return { x: cx, y: cy };
+      });
     }
 
     function renderPills() {
@@ -952,28 +936,91 @@
       }, 1800);
     }
 
+    // ── Shared collision detection utility ───────────────────
+    // Used by Cosmic, Pills, Galaxy to avoid overlapping messages
+    const placedBoxes = {}; // keyed by theme name
+
+    function clearPlaced(theme) { placedBoxes[theme] = []; }
+
+    function findFreeSpot(containerW, containerH, itemW, itemH, theme, attempts = 80) {
+      const placed = placedBoxes[theme] || [];
+      const GAP    = 12;
+
+      for (let a = 0; a < attempts; a++) {
+        const x = GAP + Math.random() * Math.max(0, containerW - itemW - GAP * 2);
+        const y = GAP + Math.random() * Math.max(0, containerH - itemH - GAP * 2);
+        const box = { x1: x - GAP, y1: y - GAP, x2: x + itemW + GAP, y2: y + itemH + GAP };
+        if (!placed.some(p => p.x1 < box.x2 && p.x2 > box.x1 && p.y1 < box.y2 && p.y2 > box.y1)) {
+          placed.push({ x1: x, y1: y, x2: x + itemW, y2: y + itemH });
+          placedBoxes[theme] = placed;
+          return { x, y };
+        }
+      }
+      // Fallback — grid overflow
+      const idx    = placed.length;
+      const perRow = Math.max(1, Math.floor(containerW / (itemW + GAP)));
+      const fx     = GAP + (idx % perRow) * (itemW + GAP);
+      const fy     = GAP + Math.floor(idx / perRow) * (itemH + GAP);
+      placed.push({ x1: fx, y1: fy, x2: fx + itemW, y2: fy + itemH });
+      placedBoxes[theme] = placed;
+      return { x: fx, y: fy };
+    }
+
     // ── COSMIC ────────────────────────────────────────────────
     function pickColor() { return COLORS[Math.floor(Math.random() * COLORS.length)]; }
 
-    function randomPositionInCircle() {
-      const wrap = document.getElementById('circle-wrap');
-      const R = wrap.offsetWidth / 2;
-      const safeR = R * 0.82;
-      const angle = Math.random() * 2 * Math.PI;
-      const r = safeR * Math.sqrt(Math.random());
-      return { left: R + r * Math.cos(angle), top: R + r * Math.sin(angle) };
-    }
-
     function addCosmicMsg(msg) {
       const wrap = document.getElementById('circle-wrap');
-      const el   = document.createElement('div');
+      const D    = wrap.offsetWidth || 500;
+      const R    = D / 2;
+
+      const el = document.createElement('div');
       el.classList.add('floating-msg');
       el.dataset.id  = msg.id;
       el.textContent = msg.text;
       el.style.color = pickColor();
-      const pos = randomPositionInCircle();
-      el.style.left  = pos.left + 'px';
-      el.style.top   = pos.top  + 'px';
+
+      // Estimate text dimensions
+      const charW = 9, lineH = 22;
+      const estW  = Math.min(msg.text.length * charW, D * 0.44);
+      const estH  = lineH;
+
+      // Try collision-free position within circle bounds
+      const GAP  = 10;
+      let placed = false;
+      for (let a = 0; a < 80; a++) {
+        const angle  = Math.random() * 2 * Math.PI;
+        const radius = (R * 0.1) + Math.random() * (R * 0.72);
+        const cx     = R + radius * Math.cos(angle);
+        const cy     = R + radius * Math.sin(angle);
+        const x      = cx - estW / 2;
+        const y      = cy - estH / 2;
+
+        // Must be fully inside circle
+        const corners = [[x, y],[x+estW, y],[x, y+estH],[x+estW, y+estH]];
+        const inside  = corners.every(([px, py]) => Math.sqrt((px-R)**2 + (py-R)**2) < R * 0.88);
+        if (!inside) continue;
+
+        const box = { x1: x - GAP, y1: y - GAP, x2: x + estW + GAP, y2: y + estH + GAP };
+        const cosmic = placedBoxes['cosmic'] || [];
+        if (!cosmic.some(p => p.x1 < box.x2 && p.x2 > box.x1 && p.y1 < box.y2 && p.y2 > box.y1)) {
+          cosmic.push({ x1: x, y1: y, x2: x + estW, y2: y + estH });
+          placedBoxes['cosmic'] = cosmic;
+          el.style.left = cx + 'px';
+          el.style.top  = cy + 'px';
+          placed = true;
+          break;
+        }
+      }
+
+      if (!placed) {
+        // Fallback — random position, accept overlap only when truly full
+        const angle  = Math.random() * 2 * Math.PI;
+        const radius = R * 0.5 * Math.sqrt(Math.random());
+        el.style.left = (R + radius * Math.cos(angle)) + 'px';
+        el.style.top  = (R + radius * Math.sin(angle)) + 'px';
+      }
+
       const anim = FLOAT_ANIMS[Math.floor(Math.random() * FLOAT_ANIMS.length)];
       el.style.animation = `${anim} ${(22 + Math.random() * 20).toFixed(1)}s ${(Math.random() * 8).toFixed(1)}s ease-in-out infinite`;
       if (selectMode) { el.classList.add('mod-mode'); el.addEventListener('click', toggleMsgSelect); }
@@ -983,6 +1030,7 @@
     }
 
     function renderCosmic() {
+      clearPlaced('cosmic');
       document.getElementById('circle-wrap').querySelectorAll('.floating-msg').forEach(e => e.remove());
       messages.forEach(addCosmicMsg);
     }
@@ -1010,6 +1058,7 @@
     function renderSticky() {
       const container = document.getElementById('sticky-container');
       container.querySelectorAll('.sticky-note').forEach(e => e.remove());
+      clearPlaced('sticky');
       if (!messages.length) return;
 
       const W = container.offsetWidth  || 800;
