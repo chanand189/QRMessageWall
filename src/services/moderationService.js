@@ -1,171 +1,147 @@
 // ─────────────────────────────────────────────────────────────
 //  Content Moderation Service — 100% local, no API key needed
 //
-//  Detects abuse even when obfuscated via:
-//   - Spaces between letters  (f u c k)
-//   - Punctuation/symbols     (f.u.c.k  f*u*c*k)
-//   - Repeated letters        (fuuuuck)
-//   - Leetspeak               (f4ck  sh1t  @ss)
-//   - Mixed case              (FuCk)
-//   - Unicode lookalikes      (ƒuck)
-//
-//  Returns: { blocked, review, reason, severity, categories }
+//  Detects obfuscated abuse:
+//   - Leetspeak:    sh1t k1ll @ss
+//   - Spaced chars: f u c k (only single chars separated by spaces)
+//   - Punctuation:  f.u.c.k  f*u*c*k
+//   - Repeats:      fuuuuck
 // ─────────────────────────────────────────────────────────────
 
-const { Filter } = require('bad-words');
-const filter = new Filter();
+const BadWords = require('bad-words');
+const filter   = new BadWords();
 
-// ── Step 1: Normalize text to defeat obfuscation ─────────────
+// ── Normalize ────────────────────────────────────────────────
 function normalize(text) {
   let t = text.toLowerCase();
 
-  // Remove zero-width and invisible chars
+  // Remove invisible chars
   t = t.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '');
 
-  // Leetspeak substitutions
+  // Leetspeak
   const leet = {
-    '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
-    '6': 'g', '7': 't', '8': 'b', '9': 'g',
-    '@': 'a', '$': 's', '!': 'i', '+': 't',
-    '(': 'c', ')': 'd', '|': 'i', '¡': 'i',
-    'ƒ': 'f', 'µ': 'u', '€': 'e', '£': 'l',
-    'ß': 'ss', 'ð': 'd', 'þ': 'th',
+    '0':'o','1':'i','3':'e','4':'a','5':'s','6':'g','7':'t','8':'b','9':'g',
+    '@':'a','$':'s','!':'i','+':'t','(':'c',')':'d','|':'i',
+    'ƒ':'f','µ':'u','€':'e','£':'l',
   };
   t = t.split('').map(c => leet[c] || c).join('');
 
-  // Remove separators between letters (f.u.c.k → fuck, f u c k → fuck)
-  // Only collapse when pattern is single-char separated by non-alphanumeric
-  t = t.replace(/\b([a-z])[^a-z0-9]{1,3}(?=[a-z]\b)/g, (_, c) => c);
-  t = t.replace(/([a-z])\s([a-z])\s([a-z])/g, '$1$2$3');
-  t = t.replace(/([a-z])\s([a-z])/g, '$1$2');
+  // Collapse ONLY single chars separated by spaces: "f u c k" → "fuck"
+  // Pattern: non-word-char OR start, then (single-letter space)+ single-letter
+  t = t.replace(/(?<![a-z])([a-z])\s(?=[a-z](?:\s[a-z])*(?:\s|$))/g, (match, ch) => ch);
+  // Run twice to catch overlapping
+  t = t.replace(/(?<![a-z])([a-z])\s(?=[a-z](?:\s[a-z])*(?:\s|$))/g, (match, ch) => ch);
 
-  // Collapse repeated letters (fuuuuck → fuck, shiiit → shit)
+  // Remove punctuation separators between single letters: f.u.c.k → fuck
+  t = t.replace(/\b([a-z])[.\-*_~|\\\/]{1,2}([a-z])\b/g, '$1$2');
+
+  // Collapse repeated letters (fuuuuck → fuuck)
   t = t.replace(/(.)\1{2,}/g, '$1$1');
 
-  // Remove remaining punctuation except spaces
-  t = t.replace(/[^a-z0-9\s]/g, ' ');
-
-  // Collapse multiple spaces
-  t = t.replace(/\s+/g, ' ').trim();
-
-  return t;
+  return t.trim();
 }
 
-// ── Step 2: Pattern categories ────────────────────────────────
-
+// ── Patterns ─────────────────────────────────────────────────
 const PATTERNS = {
 
-  // ── Threats & violence ──
   threats: [
-    /\b(i('ll|'m going to| will| am going to)|gonna|going to)\s+(kill|murder|hurt|shoot|stab|attack|beat|destroy|end)\s+(you|u|him|her|them|everyone)\b/,
-    /\b(kill|murder|hurt|shoot|stab|attack)\s+(yourself|urself|him|her|them|everyone|you)\b/,
-    /\b(bomb|blow\s*up|explode|grenade|shoot\s*up)\s*(this|the|a|an)?\s*(place|school|building|crowd|event|wall)\b/,
-    /\bdie\s+(slow|painfully|already|bitch)\b/,
-    /\bi\s+want\s+(you|him|her|them)\s+(dead|to\s+die)\b/,
-    /\byou\s+(are|r)\s+(dead|gonna\s+die)\b/,
+    /\b(gonna|going to|will|i'll)\s+(kill|murder|hurt|shoot|stab|attack)\s+(you|u|him|her|them|everyone)\b/,
+    /\b(kill|murder|shoot|stab)\s+(yourself|urself)\b/,
+    /\b(bomb|blow up|shoot up)\s+(this|the)?\s*(place|school|building|event)\b/,
+    /\bdie\s+(slow|painfully|already)\b/,
+    /\bi want (you|him|her) (dead|to die)\b/,
   ],
 
-  // ── Self-harm & suicide ──
   selfharm: [
-    /\b(kill|hurt|harm|cut|end)\s+(my|your|ur)\s*(self|life|wrists?|existence)\b/,
-    /\b(suicide|suicidal|kms|kys)\b/,
-    /\bkill\s*(your|ur)\s*self\b/,
-    /\bend\s*(it|my\s*life|your\s*life|everything)\b/,
-    /\bwant\s+to\s+(die|end\s+it|disappear|not\s+exist)\b/,
-    /\b(self[\s-]?harm|self[\s-]?destruct)\b/,
+    /\b(kill|hurt|harm|cut|end)\s+(my|your|ur)\s*(self|life|wrists?)\b/,
+    /\b(suicide|suicidal)\b/,
+    /\bkms\b/,
+    /\bkys\b/,
+    /\bwant to (die|end it|not exist)\b/,
+    /\bself[\s-]?harm\b/,
   ],
 
-  // ── Hate speech ──
   hatespeech: [
-    /\b(all|those?|these?|you)\s+(blacks?|whites?|jews?|muslims?|christians?|asians?|latinos?|hispanics?|gays?|lesbians?|trans)\s+(should|must|need\s+to|deserve\s+to)\s+(die|be\s+killed|be\s+gone|disappear)\b/,
-    /\b(go\s+back\s+to|get\s+out\s+of)\s+(your|their)\s+(country|land)\b/,
     /\b(ethnic|racial)\s+cleansing\b/,
     /\bgenocide\b/,
-    /\b(gas|burn|hang)\s+(the|all|those?)?\s*(jews?|blacks?|gays?|muslims?)\b/,
+    /\b(gas|burn|hang)\s+(the\s+)?(jews|blacks|gays|muslims)\b/,
+    /\b(all)?\s*(blacks|jews|muslims|gays)\s+(should|must|deserve to)\s+(die|be killed)\b/,
   ],
 
-  // ── Harassment ──
   harassment: [
-    /\byou\s+(are|r|'re)\s+(worthless|pathetic|disgusting|ugly|stupid|trash|garbage|nothing|a\s*(piece\s+of\s+)?waste|useless|a\s*loser)\b/,
-    /\bno\s+one\s+(likes?|loves?|wants?|cares?\s*(about)?)\s+(you|u)\b/,
-    /\byou\s+should\s+(not\s+exist|disappear|be\s+dead|never\s+have\s+been\s+born)\b/,
-    /\bgo\s+(die|kill\s*yourself|hang)\b/,
+    /\byou\s+(are|r|re)\s+(worthless|pathetic|disgusting|ugly|stupid|trash|garbage|useless|a loser|a waste)\b/,
+    /\b(worthless|pathetic|disgusting)\s+(trash|garbage|piece)\b/,
+    /\bno one\s+(likes|loves|wants|cares about)\s+(you|u)\b/,
+    /\byou should (not exist|disappear|be dead)\b/,
+    /\bgo (die|hang)\b/,
     /\bkys\b/,
-    /\b(loser|worthless|pathetic|disgusting)\s+(piece\s+of\s+)?(human|trash|garbage|crap|shit)\b/,
   ],
 
-  // ── Sexual / explicit ──
   sexual: [
-    /\b(send|show|give\s+me)\s+(nude|nudes|naked|pics|photos)\b/,
-    /\b(want\s+to|wanna|gonna)\s+(f+u+c+k|have\s+sex\s+with|do\s+it\s+with)\s+(you|u|her|him)\b/,
-    /\b(suck|lick|ride|bang)\s+(my|this)\s+(d+i+c+k|c+o+c+k|p+u+s+s+y|a+s+s)\b/,
-    /\bp+o+r+n\b/,
+    /\b(send|show|give me)\s+(nude|nudes|naked|pics|photos)\b/,
+    /\b(wanna|gonna|want to)\s+(fuck|have sex)\s+(you|u|her|him)\b/,
+    /\bsend (me )?(your )?(dick|pussy|ass)\s*(pic|photo|pic)?\b/,
+    /\bporn\b/,
     /\b(sex|sexual)\s+(assault|harass|abuse)\b/,
+    /\bonlyfans\b/,
   ],
 
-  // ── Dangerous content ──
   dangerous: [
-    /\b(how\s+to|where\s+to|can\s+i)\s+(make|build|get|buy|obtain)\s+(a\s+)?(bomb|weapon|gun|drugs?|meth|cocaine|fentanyl)\b/,
-    /\b(buy|sell|deal|score)\s+(meth|cocaine|heroin|fentanyl|crack|weed|drugs?)\b/,
-    /\b(child|minor|kid|underage)\s+(sex|porn|nude|naked|molest|abuse)\b/,
+    /\b(how to|where to|can i)\s+(make|build|buy)\s+(a\s+)?(bomb|weapon|drugs|meth|cocaine|fentanyl)\b/,
+    /\b(buy|sell|deal|score)\s+(meth|cocaine|heroin|fentanyl|crack)\b/,
+    /\b(child|minor|kid|underage)\s+(sex|porn|nude|molest|abuse)\b/,
     /\b(cp|csam|loli)\b/,
   ],
 
-  // ── Spam ──
   spam: [
-    /\b(follow|subscribe|check\s+out|visit|click)\s+(my|our|this)\s+(channel|page|profile|link|website|instagram|tiktok|onlyfans)\b/,
-    /https?:\/\/\S+/,
-    /www\.\S+\.\S+/,
-    /\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/,
-    /(.)\1{4,}/, // aaaaaaa spam
+    /\b(follow|subscribe|check out|visit)\s+(my|our)\s+(channel|page|profile|website|instagram|tiktok)\b/,
+    /https?:\/\/[^\s]+/,
+    /www\.[a-z0-9-]+\.[a-z]{2,}/,
+    /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/,
+    /(.)\1{5,}/,
   ],
 };
 
-// Profanity — mild words that get REVIEW not BLOCK
-const REVIEW_WORDS = ['damn', 'hell', 'crap', 'ass', 'butt', 'piss', 'pee', 'fart', 'suck', 'idiot', 'stupid', 'dumb', 'moron'];
+// Words that trigger REVIEW (not BLOCK)
+const REVIEW_WORDS = ['damn','hell','crap','ass','butt','piss','fart','idiot','stupid','dumb','moron'];
 
-// ── Step 3: Check normalized text ────────────────────────────
+// ── Check ────────────────────────────────────────────────────
 function checkPatterns(normalized, original) {
   const results = [];
 
   for (const [category, patterns] of Object.entries(PATTERNS)) {
     for (const pattern of patterns) {
-      if (pattern.test(normalized)) {
-        results.push(category);
+      if (pattern.test(normalized) || pattern.test(original.toLowerCase())) {
+        if (!results.includes(category)) results.push(category);
         break;
       }
     }
   }
 
-  // Bad-words library (handles many variants automatically)
+  // bad-words library
   try {
     if (filter.isProfane(normalized) || filter.isProfane(original.toLowerCase())) {
       if (!results.includes('profanity')) results.push('profanity');
     }
   } catch {}
 
-  // Mild review words
+  // Mild words → REVIEW
   for (const word of REVIEW_WORDS) {
     const re = new RegExp(`\\b${word}\\b`);
-    if (re.test(normalized)) {
-      if (!results.includes('mild_language')) results.push('mild_language');
+    if (re.test(normalized) && !results.includes('mild_language')) {
+      results.push('mild_language');
     }
   }
 
   return results;
 }
 
-// ── Step 4: Decision logic ────────────────────────────────────
+// ── Decision ─────────────────────────────────────────────────
 function decide(categories) {
-  const BLOCK_CATS = ['threats','selfharm','hatespeech','harassment','sexual','dangerous'];
-  const REVIEW_CATS = ['profanity', 'mild_language'];
-
-  for (const cat of BLOCK_CATS) {
-    if (categories.includes(cat)) return 'BLOCK';
-  }
-  for (const cat of REVIEW_CATS) {
-    if (categories.includes(cat)) return 'REVIEW';
-  }
+  const BLOCK  = ['threats','selfharm','hatespeech','harassment','sexual','dangerous'];
+  const REVIEW = ['profanity','mild_language','spam'];
+  for (const c of BLOCK)  if (categories.includes(c)) return 'BLOCK';
+  for (const c of REVIEW) if (categories.includes(c)) return 'REVIEW';
   return 'ALLOW';
 }
 
@@ -178,12 +154,12 @@ function severity(categories) {
 function userReason(categories) {
   if (categories.includes('threats'))     return 'Message contains threatening language and cannot be posted.';
   if (categories.includes('selfharm'))    return 'Message contains sensitive content and cannot be posted.';
-  if (categories.includes('hatespeech')) return 'Message contains hateful content and cannot be posted.';
-  if (categories.includes('harassment')) return 'Message contains harassing content and cannot be posted.';
-  if (categories.includes('sexual'))     return 'Message contains inappropriate content and cannot be posted.';
-  if (categories.includes('dangerous'))  return 'Message contains unsafe content and cannot be posted.';
-  if (categories.includes('spam'))       return 'Message looks like spam and cannot be posted.';
-  if (categories.includes('profanity'))  return 'Message contains inappropriate language. Please keep it clean!';
+  if (categories.includes('hatespeech'))  return 'Message contains hateful content and cannot be posted.';
+  if (categories.includes('harassment'))  return 'Message contains harassing content and cannot be posted.';
+  if (categories.includes('sexual'))      return 'Message contains inappropriate content and cannot be posted.';
+  if (categories.includes('dangerous'))   return 'Message contains unsafe content and cannot be posted.';
+  if (categories.includes('spam'))        return 'Message looks like spam and cannot be posted.';
+  if (categories.includes('profanity'))   return 'Message contains inappropriate language. Please keep it clean!';
   return 'Message was flagged and cannot be posted.';
 }
 
