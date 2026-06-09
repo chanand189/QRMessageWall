@@ -263,6 +263,37 @@
     .pill-card.mod-mode    { pointer-events: all; cursor: pointer; }
     .pill-card.mod-mode:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.14); z-index: 5; }
     .pill-card.selected-msg{ box-shadow: 0 0 0 3px #ff5555; }
+
+    /* ══════════════════════════════════
+       THEME: GALAXY (Three.js 3D)
+    ══════════════════════════════════ */
+    body.theme-galaxy { background: #000010; color: #fff; }
+    body.theme-galaxy #left-panel { border-right: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,10,0.7); backdrop-filter: blur(10px); z-index: 10; }
+    body.theme-galaxy #qr-label   { color: rgba(255,255,255,0.9); }
+    body.theme-galaxy #event-name { color: rgba(255,255,255,0.45); }
+    body.theme-galaxy #qr-img     { box-shadow: 0 0 30px rgba(100,180,255,0.3); }
+
+    #galaxy-container { display: none; position: absolute; inset: 0; }
+    body.theme-galaxy #galaxy-container { display: block; }
+    #galaxy-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    #galaxy-spotlight {
+      position: absolute; left: 50%; top: 42%;
+      transform: translate(-50%,-50%) scale(0); opacity: 0;
+      pointer-events: none; z-index: 20;
+      text-align: center; max-width: 78%; word-break: break-word;
+      padding: 18px 32px; border-radius: 16px;
+      background: rgba(5,5,30,0.88);
+      border: 1px solid rgba(120,180,255,0.35);
+      box-shadow: 0 0 40px rgba(80,140,255,0.25), inset 0 0 20px rgba(80,140,255,0.04);
+      font-size: clamp(1.1rem,2.5vw,1.9rem); font-weight: 800;
+      color: #fff; line-height: 1.35; backdrop-filter: blur(8px);
+    }
+    @keyframes gxy-in  { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.5)} 60%{opacity:1;transform:translate(-50%,-50%) scale(1.05)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+    @keyframes gxy-out { 0%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-50%) scale(0.6)} }
+    #galaxy-spotlight.appear { animation: gxy-in  0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+    #galaxy-spotlight.depart { animation: gxy-out 0.5s ease-in forwards; }
+
     #photo-overlay {
       display: none; opacity: 0; position: fixed; inset: 0;
       background: rgba(0,0,0,0.92); z-index: 200;
@@ -377,6 +408,12 @@
       </div>
     </div>
 
+    <!-- GALAXY (Three.js) -->
+    <div id="galaxy-container">
+      <canvas id="galaxy-canvas"></canvas>
+      <div id="galaxy-spotlight"></div>
+    </div>
+
   </div>
 
   <!-- PHOTO OVERLAY -->
@@ -453,8 +490,25 @@
       </div>
       <div class="name">Pills</div>
     </div>
+    <div class="theme-card" id="tc-galaxy" onclick="changeTheme('galaxy')">
+      <div class="theme-preview-thumb" style="background:#000010;border-radius:8px;overflow:hidden;position:relative">
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 60% 50%,#1a0a3e,#000010)"></div>
+        <div style="position:absolute;top:4px;left:8px;width:3px;height:3px;border-radius:50%;background:#fff;opacity:0.9"></div>
+        <div style="position:absolute;top:12px;left:22px;width:2px;height:2px;border-radius:50%;background:#aaf;opacity:0.8"></div>
+        <div style="position:absolute;top:6px;right:10px;width:2px;height:2px;border-radius:50%;background:#ffa;opacity:0.7"></div>
+        <div style="position:absolute;bottom:10px;left:14px;width:2px;height:2px;border-radius:50%;background:#8cf;opacity:0.7"></div>
+        <div style="position:absolute;bottom:6px;right:16px;width:3px;height:3px;border-radius:50%;background:#c8f;opacity:0.8"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+          <div style="width:26px;height:26px;border-radius:50%;border:1px solid rgba(100,180,255,0.5);display:flex;align-items:center;justify-content:center">
+            <div style="width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#4af,#1a6)"></div>
+          </div>
+        </div>
+      </div>
+      <div class="name">Galaxy</div>
+    </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const COLORS      = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f43','#48dbfb','#ff6fd8'];
@@ -474,12 +528,14 @@
 
     // ── Theme ─────────────────────────────────────────────────
     function applyTheme(theme) {
+      if (currentTheme === 'galaxy' && theme !== 'galaxy') destroyGalaxy();
       currentTheme = theme;
       document.body.className = `theme-${theme}`;
       document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
       const tc = document.getElementById(`tc-${theme}`);
       if (tc) tc.classList.add('active');
       renderAll();
+      if (theme === 'galaxy') initGalaxy();
     }
 
     async function changeTheme(theme) {
@@ -502,6 +558,217 @@
       if (currentTheme === 'cosmic') renderCosmic();
       if (currentTheme === 'sticky') renderSticky();
       if (currentTheme === 'pills')  renderPills();
+      if (currentTheme === 'galaxy') renderGalaxy();
+    }
+
+    // ── GALAXY (Three.js) ─────────────────────────────────────
+    let galaxyScene, galaxyCamera, galaxyRenderer, galaxyAnimId;
+    let galaxyStars, galaxyMsgMeshes = [];
+    let galaxySpotlightBusy = false, galaxySpotlightQueue = [];
+    const GALAXY_COLORS = [0x4d96ff,0xff6b6b,0x1db887,0xf5a623,0xc77dff,0x48dbfb,0xff6fd8,0x6bcb77];
+
+    function initGalaxy() {
+      if (galaxyRenderer) return; // already init
+      const canvas    = document.getElementById('galaxy-canvas');
+      const container = document.getElementById('galaxy-container');
+      const W = container.offsetWidth;
+      const H = container.offsetHeight;
+
+      // Scene
+      galaxyScene  = new THREE.Scene();
+      galaxyCamera = new THREE.PerspectiveCamera(60, W / H, 0.1, 1000);
+      galaxyCamera.position.set(0, 0, 14);
+
+      galaxyRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      galaxyRenderer.setSize(W, H);
+      galaxyRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      galaxyRenderer.setClearColor(0x000010, 1);
+
+      // Star field
+      const starGeo  = new THREE.BufferGeometry();
+      const starCount = 1800;
+      const starPos   = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount * 3; i++) {
+        starPos[i] = (Math.random() - 0.5) * 120;
+      }
+      starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+      const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.75 });
+      galaxyStars   = new THREE.Points(starGeo, starMat);
+      galaxyScene.add(galaxyStars);
+
+      // Ambient + point light
+      galaxyScene.add(new THREE.AmbientLight(0x334466, 2));
+      const pLight = new THREE.PointLight(0x4488ff, 3, 30);
+      pLight.position.set(0, 0, 5);
+      galaxyScene.add(pLight);
+
+      // Resize handler
+      window.addEventListener('resize', () => {
+        if (currentTheme !== 'galaxy') return;
+        const W2 = container.offsetWidth, H2 = container.offsetHeight;
+        galaxyCamera.aspect = W2 / H2;
+        galaxyCamera.updateProjectionMatrix();
+        galaxyRenderer.setSize(W2, H2);
+      });
+
+      animateGalaxy();
+    }
+
+    function animateGalaxy() {
+      galaxyAnimId = requestAnimationFrame(animateGalaxy);
+      const t = Date.now() * 0.0003;
+
+      // Rotate star field slowly
+      if (galaxyStars) {
+        galaxyStars.rotation.y = t * 0.15;
+        galaxyStars.rotation.x = t * 0.05;
+      }
+
+      // Float message meshes
+      galaxyMsgMeshes.forEach((obj, i) => {
+        obj.mesh.rotation.y = Math.sin(t + i * 0.8) * 0.12;
+        obj.mesh.position.y = obj.baseY + Math.sin(t * 1.2 + i * 1.1) * 0.18;
+        obj.mesh.position.x = obj.baseX + Math.cos(t * 0.9 + i * 0.7) * 0.12;
+      });
+
+      galaxyRenderer.render(galaxyScene, galaxyCamera);
+    }
+
+    function makeTextSprite(text, color) {
+      const canvas  = document.createElement('canvas');
+      const ctx     = canvas.getContext('2d');
+      const maxW    = 512;
+      const padX    = 28, padY = 18;
+      const radius  = 20;
+      const fontSize = 28;
+
+      ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+
+      // Word-wrap into lines
+      const words = text.split(' ');
+      const lines = [];
+      let line = '';
+      words.forEach(word => {
+        const test = line ? `${line} ${word}` : word;
+        if (ctx.measureText(test).width > maxW - padX * 2 && line) {
+          lines.push(line); line = word;
+        } else { line = test; }
+      });
+      if (line) lines.push(line);
+
+      const lineH  = fontSize * 1.35;
+      const textW  = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + padX * 2);
+      const textH  = lines.length * lineH + padY * 2;
+
+      canvas.width  = textW;
+      canvas.height = textH;
+      ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+
+      // Pill background
+      const r = parseInt(color.toString(16).padStart(6,'0').slice(0,2),16);
+      const g = parseInt(color.toString(16).padStart(6,'0').slice(2,4),16);
+      const b = parseInt(color.toString(16).padStart(6,'0').slice(4,6),16);
+      ctx.fillStyle = `rgba(${r},${g},${b},0.18)`;
+      ctx.strokeStyle = `rgba(${r},${g},${b},0.7)`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(radius, 0);
+      ctx.lineTo(textW - radius, 0);
+      ctx.quadraticCurveTo(textW, 0, textW, radius);
+      ctx.lineTo(textW, textH - radius);
+      ctx.quadraticCurveTo(textW, textH, textW - radius, textH);
+      ctx.lineTo(radius, textH);
+      ctx.quadraticCurveTo(0, textH, 0, textH - radius);
+      ctx.lineTo(0, radius);
+      ctx.quadraticCurveTo(0, 0, radius, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Text
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.textAlign  = 'center';
+      ctx.textBaseline = 'top';
+      lines.forEach((l, i) => {
+        ctx.fillText(l, textW / 2, padY + i * lineH);
+      });
+
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+      const sprite = new THREE.Sprite(mat);
+      const aspect = textW / textH;
+      sprite.scale.set(aspect * 1.6, 1.6, 1);
+      return sprite;
+    }
+
+    function renderGalaxy() {
+      initGalaxy();
+      // Clear existing message sprites
+      galaxyMsgMeshes.forEach(o => galaxyScene.remove(o.mesh));
+      galaxyMsgMeshes = [];
+      if (!messages.length) return;
+
+      // Place messages in 3D space — sphere distribution
+      messages.forEach((msg, i) => {
+        const color  = GALAXY_COLORS[i % GALAXY_COLORS.length];
+        const sprite = makeTextSprite(msg.text, color);
+
+        // Fibonacci sphere distribution
+        const total  = Math.max(messages.length, 1);
+        const golden = Math.PI * (3 - Math.sqrt(5));
+        const y      = 1 - (i / (total - 1 || 1)) * 2;
+        const radius = Math.sqrt(1 - y * y);
+        const theta  = golden * i;
+        const R      = 5.5 + Math.random() * 1.5;
+
+        sprite.position.set(
+          Math.cos(theta) * radius * R,
+          y * R * 0.7,
+          Math.sin(theta) * radius * R * 0.5 - 2
+        );
+
+        galaxyScene.add(sprite);
+        galaxyMsgMeshes.push({
+          mesh:  sprite,
+          baseX: sprite.position.x,
+          baseY: sprite.position.y,
+          id:    msg.id,
+        });
+      });
+    }
+
+    function galaxySpotlightNew(msg) {
+      galaxySpotlightQueue.push(msg);
+      processGalaxySpotlight();
+    }
+
+    function processGalaxySpotlight() {
+      if (galaxySpotlightBusy || !galaxySpotlightQueue.length) return;
+      galaxySpotlightBusy = true;
+      const msg = galaxySpotlightQueue.shift();
+      const el  = document.getElementById('galaxy-spotlight');
+      el.textContent = msg.text;
+      el.classList.remove('depart');
+      el.classList.add('appear');
+
+      setTimeout(() => {
+        el.classList.remove('appear');
+        el.classList.add('depart');
+        setTimeout(() => {
+          el.classList.remove('depart');
+          renderGalaxy();
+          galaxySpotlightBusy = false;
+          processGalaxySpotlight();
+        }, 500);
+      }, 2200);
+    }
+
+    function destroyGalaxy() {
+      if (galaxyAnimId) cancelAnimationFrame(galaxyAnimId);
+      galaxyAnimId = null;
+      if (galaxyRenderer) { galaxyRenderer.dispose(); galaxyRenderer = null; }
+      galaxyScene = null; galaxyCamera = null;
+      galaxyMsgMeshes = [];
     }
 
     // ── PILLS ─────────────────────────────────────────────────
@@ -819,10 +1086,11 @@
     socket.on('new-message', msg => {
       messages.push(msg);
       if (currentTheme === 'cosmic') {
-        spotlightQueue.push(msg);
-        processQueue();
+        spotlightQueue.push(msg); processQueue();
       } else if (currentTheme === 'pills') {
         pillsSpotlightNew(msg);
+      } else if (currentTheme === 'galaxy') {
+        galaxySpotlightNew(msg);
       } else {
         renderAll();
       }
@@ -841,6 +1109,7 @@
       spotlightQueue = spotlightQueue.filter(m => !ids.includes(m.id));
       if (currentTheme === 'sticky') renderSticky();
       if (currentTheme === 'pills')  renderPills();
+      if (currentTheme === 'galaxy') renderGalaxy();
     });
 
     socket.on('remove-messages', ids => {
@@ -849,6 +1118,7 @@
       spotlightQueue = spotlightQueue.filter(m => !ids.includes(m.id));
       if (currentTheme === 'sticky') renderSticky();
       if (currentTheme === 'pills')  renderPills();
+      if (currentTheme === 'galaxy') renderGalaxy();
     });
 
     socket.on('theme-changed', ({ theme }) => applyTheme(theme));
@@ -1015,7 +1285,6 @@
     window.addEventListener('resize', () => {
       if (currentTheme === 'sticky') renderSticky();
       if (currentTheme === 'pills')  renderPills();
-    });
-  </script>
+    });  </script>
 </body>
 </html>
