@@ -1015,20 +1015,35 @@
       const W = container.offsetWidth  || 800;
       const H = container.offsetHeight || 600;
 
-      const latest  = messages[messages.length - 1];
-      const older   = messages.slice(0, -1);
+      const latest = messages[messages.length - 1];
+      const older  = messages.slice(0, -1);
 
-      // Place older notes across the board avoiding center zone
-      // Center zone: roughly 30%–70% x, 25%–75% y
-      const positions = generateStickyPositions(older.length, W, H);
+      // Featured note dimensions (center)
+      const FW = 220, FH = 130;
+      const fx = W / 2 - FW / 2;
+      const fy = H / 2 - FH / 2;
+
+      // Place older notes with collision detection
+      // Center exclusion zone with padding
+      const CENTER_PAD = 20;
+      const centerZone = {
+        x1: fx - CENTER_PAD, y1: fy - CENTER_PAD,
+        x2: fx + FW + CENTER_PAD, y2: fy + FH + CENTER_PAD,
+      };
+
+      const placed = []; // list of { x1,y1,x2,y2 } bounding boxes
 
       older.forEach((msg, i) => {
         const colorClass = STICKY_COLORS[i % STICKY_COLORS.length];
         const rotation   = ROTATIONS[i % ROTATIONS.length];
-        const pos        = positions[i];
-        const el         = createStickyNote(msg, colorClass, rotation, false);
-        el.style.left    = pos.x + 'px';
-        el.style.top     = pos.y + 'px';
+        const nW = 160, nH = estimateNoteHeight(msg.text);
+
+        const pos = findFreePosition(W, H, nW, nH, placed, centerZone);
+        placed.push({ x1: pos.x, y1: pos.y, x2: pos.x + nW, y2: pos.y + nH });
+
+        const el = createStickyNote(msg, colorClass, rotation, false);
+        el.style.left = pos.x + 'px';
+        el.style.top  = pos.y + 'px';
         container.appendChild(el);
       });
 
@@ -1036,9 +1051,8 @@
       const featuredColor = STICKY_COLORS[messages.length % STICKY_COLORS.length];
       const featuredRot   = ROTATIONS[Math.floor(Math.random() * 3)] * 0.5;
       const featured      = createStickyNote(latest, featuredColor, featuredRot, true);
-      const fw = 230, fh = 120;
-      featured.style.left = (W / 2 - fw / 2) + 'px';
-      featured.style.top  = (H / 2 - fh / 2) + 'px';
+      featured.style.left = fx + 'px';
+      featured.style.top  = fy + 'px';
       container.appendChild(featured);
     }
 
@@ -1053,26 +1067,66 @@
       return el;
     }
 
-    function generateStickyPositions(count, W, H) {
-      const positions = [];
-      const noteW = 160, noteH = 110;
-      // Quadrant zones — avoid center 40% area
-      const zones = [
-        { x: [20, W * 0.28],       y: [20, H * 0.42] },        // top-left
-        { x: [W * 0.72, W - noteW - 20], y: [20, H * 0.42] },  // top-right
-        { x: [20, W * 0.28],       y: [H * 0.55, H - noteH - 20] }, // bottom-left
-        { x: [W * 0.72, W - noteW - 20], y: [H * 0.55, H - noteH - 20] }, // bottom-right
-        { x: [W * 0.32, W * 0.62], y: [20, H * 0.2] },          // top-center
-        { x: [W * 0.32, W * 0.62], y: [H * 0.78, H - noteH - 20] }, // bottom-center
-      ];
+    // Estimate note height based on text length
+    function estimateNoteHeight(text) {
+      const charsPerLine = 18; // approx chars per line at note width
+      const lines = Math.ceil(text.length / charsPerLine);
+      return Math.max(90, Math.min(160, 60 + lines * 26));
+    }
 
-      for (let i = 0; i < count; i++) {
-        const zone = zones[i % zones.length];
-        const x = zone.x[0] + Math.random() * Math.max(0, zone.x[1] - zone.x[0]);
-        const y = zone.y[0] + Math.random() * Math.max(0, zone.y[1] - zone.y[0]);
-        positions.push({ x, y });
+    // Find a non-overlapping position for a new note
+    function findFreePosition(W, H, nW, nH, placed, centerZone) {
+      const MARGIN = 10; // gap between notes
+      const TAPE   = 16; // space for tape on top
+
+      // Try grid positions in a shuffled order across the canvas
+      const cols  = Math.floor((W - nW) / (nW * 0.7));
+      const rows  = Math.floor((H - nH) / (nH * 0.7));
+      const cellW = (W - nW - 20) / Math.max(cols, 1);
+      const cellH = (H - nH - 20) / Math.max(rows, 1);
+
+      const candidates = [];
+      for (let r = 0; r <= rows; r++) {
+        for (let c = 0; c <= cols; c++) {
+          candidates.push({
+            x: 12 + c * cellW + (Math.random() - 0.5) * cellW * 0.4,
+            y: TAPE + r * cellH + (Math.random() - 0.5) * cellH * 0.4,
+          });
+        }
       }
-      return positions;
+
+      // Shuffle candidates for variety
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+      }
+
+      for (const pos of candidates) {
+        // Clamp to canvas bounds
+        const x = Math.max(8, Math.min(W - nW - 8, pos.x));
+        const y = Math.max(TAPE, Math.min(H - nH - 8, pos.y));
+
+        const box = { x1: x - MARGIN, y1: y - MARGIN, x2: x + nW + MARGIN, y2: y + nH + MARGIN };
+
+        // Check center zone overlap
+        if (rectsOverlap(box, centerZone)) continue;
+
+        // Check overlap with already placed notes
+        const overlaps = placed.some(p => rectsOverlap(box, p));
+        if (!overlaps) return { x, y };
+      }
+
+      // No free spot found — pack into a fallback grid position
+      const idx   = placed.length;
+      const perRow = Math.max(1, Math.floor((W - 20) / (nW + MARGIN)));
+      return {
+        x: 12 + (idx % perRow) * (nW + MARGIN),
+        y: TAPE + Math.floor(idx / perRow) * (nH + MARGIN),
+      };
+    }
+
+    function rectsOverlap(a, b) {
+      return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
     }
 
     // ── Socket.io ─────────────────────────────────────────────
